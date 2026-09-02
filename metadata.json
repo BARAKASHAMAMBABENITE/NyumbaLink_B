@@ -1,0 +1,10 @@
+{
+  "name": "NyumbaLink - Immobilier à Bukavu",
+  "description": "Immobilier à Bukavu - Vente, location et gestion de maisons, parcelles et appartements à Ibanda, Kadutu et Bagira.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

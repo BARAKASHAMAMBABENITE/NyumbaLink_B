@@ -1,0 +1,57 @@
+{
+  "name": "NyumbaLink - Immobilier à Bukavu",
+  "short_name": "NyumbaLink",
+  "description": "Plateforme Immobilière Officielle de Bukavu (Ibanda, Kadutu, Bagira) - Parcelles, Maisons, Appartements et Villas",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "background_color": "#0f172a",
+  "theme_color": "#FF385C",
+  "orientation": "portrait-primary",
+  "lang": "fr-CD",
+  "categories": ["lifestyle", "business", "real estate"],
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Voir les Annonces",
+      "short_name": "Annonces",
+      "description": "Consulter toutes les offres immobilières à Bukavu",
+      "url": "/?tab=listings",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Carte Interactive",
+      "short_name": "Carte",
+      "description": "Localiser les biens dans les 3 communes de Bukavu",
+      "url": "/?tab=map",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Assistant IA NyumbaAI",
+      "short_name": "NyumbaAI",
+      "description": "Trouver une maison avec l'intelligence artificielle",
+      "url": "/?tab=ai-assistant",
+      "icons": [{ "src": "/pwa-icon.svg", "sizes": "any" }]
+    }
+  ]
+}

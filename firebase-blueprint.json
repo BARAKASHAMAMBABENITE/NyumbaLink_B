@@ -1,0 +1,47 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile in NyumbaLink",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "fullname": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["client", "agent", "bailleur", "admin"] },
+        "phone": { "type": "string" },
+        "agencyName": { "type": "string" },
+        "avatarUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "fullname", "email", "role", "createdAt"]
+    },
+    "Property": {
+      "title": "Property",
+      "description": "Real estate property listing in Bukavu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "price": { "type": "number" },
+        "commune": { "type": "string" },
+        "neighborhood": { "type": "string" },
+        "type": { "type": "string" },
+        "category": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "price", "commune", "type", "category", "ownerId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles"
+    },
+    "/properties/{propertyId}": {
+      "schema": "Property",
+      "description": "Property listings"
+    }
+  }
+}

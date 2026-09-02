@@ -1,0 +1,160 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --airbnb-rausch: #FF385C;
+    --airbnb-rausch-dark: #D70466;
+    --airbnb-hof: #222222;
+    --airbnb-foggy: #717171;
+    --bg-canvas: #f7f7f7;
+    --bg-card: #ffffff;
+    --border-subtle: #ebebeb;
+  }
+
+  .dark {
+    color-scheme: dark;
+    --airbnb-rausch: #FF385C;
+    --airbnb-rausch-dark: #E00B41;
+    --airbnb-hof: #f7f7f7;
+    --airbnb-foggy: #b0b0b0;
+    --bg-canvas: #121212;
+    --bg-card: #1e1e1e;
+    --border-subtle: #2e2e2e;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--airbnb-hof);
+    letter-spacing: -0.015em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.25s ease, color 0.25s ease;
+  }
+
+  /* Explicit high-contrast input styles for light & dark mode */
+  input, textarea, select {
+    color: #0f172a !important;
+    caret-color: #FF385C !important;
+  }
+
+  .dark input, .dark textarea, .dark select {
+    color: #f8fafc !important;
+    caret-color: #FF385C !important;
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: #64748b;
+  }
+
+  .dark input::placeholder, .dark textarea::placeholder {
+    color: #94a3b8;
+  }
+
+  /* Fix browser autofill and active focus font colors */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  textarea:-webkit-autofill,
+  textarea:-webkit-autofill:focus,
+  select:-webkit-autofill {
+    -webkit-text-fill-color: #0f172a !important;
+    caret-color: #FF385C !important;
+    transition: background-color 5000s ease-in-out 0s;
+  }
+
+  .dark input:-webkit-autofill,
+  .dark input:-webkit-autofill:hover,
+  .dark input:-webkit-autofill:focus,
+  .dark textarea:-webkit-autofill,
+  .dark textarea:-webkit-autofill:focus,
+  .dark select:-webkit-autofill {
+    -webkit-text-fill-color: #f8fafc !important;
+  }
+
+  h1, h2, h3, h4, h5, h6, .font-serif-display {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
+    letter-spacing: -0.025em;
+  }
+}
+
+/* Explicit high-contrast input styles for light & dark mode - ALWAYS visible */
+input, textarea, select {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  caret-color: #FF385C !important;
+}
+
+input:focus, textarea:focus, select:focus,
+input:active, textarea:active, select:active {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.dark input, .dark textarea, .dark select {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #FF385C !important;
+}
+
+.dark input:focus, .dark textarea:focus, .dark select:focus,
+.dark input:active, .dark textarea:active, .dark select:active {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+/* Custom Leaflet Map Pin Styles */
+.leaflet-popup-content-wrapper {
+  border-radius: 1rem !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid rgba(222, 222, 222, 0.4) !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: 270px !important;
+}
+
+.leaflet-container {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  z-index: 10;
+}
+
+/* Hide scrollbars for slick mobile tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Clean Print Rules for Lease Certificates */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-lease-certificate, #printable-lease-certificate * {
+    visibility: visible;
+  }
+  #printable-lease-certificate {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 24px;
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+}
+
+
+

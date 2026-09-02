@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Signature NyumbaLink Coral-Rose Gradient matching navbar badge -->
+    <linearGradient id="nyumbaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF4B6E"/>
+      <stop offset="35%" stop-color="#FF385C"/>
+      <stop offset="70%" stop-color="#E61E4D"/>
+      <stop offset="100%" stop-color="#D70466"/>
+    </linearGradient>
+
+    <!-- Glossy Top Highlight -->
+    <linearGradient id="glossGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.3"/>
+      <stop offset="60%" stop-color="#FFFFFF" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Soft Depth Shadow for the icon elements -->
+    <filter id="elementShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#880527" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Squircle App Badge Container -->
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#nyumbaGrad)"/>
+  <rect x="18" y="18" width="476" height="476" rx="106" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-opacity="0.25"/>
+
+  <!-- Upper Glass Highlight -->
+  <path d="M 18 126 C 18 66 66 18 126 18 L 386 18 C 446 18 494 66 494 126 L 494 220 C 350 250 160 250 18 220 Z" fill="url(#glossGrad)"/>
+
+  <!-- Iconic Real Estate Emblem (Matched 100% to Navbar BrandLogo) -->
+  <g filter="url(#elementShadow)" transform="translate(68, 68) scale(15.666)">
+    <!-- Tower Skyline Right / Highrise Detail (Gold Accent) -->
+    <path d="M14 6.5V4h4v5" stroke="#FBBF24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    
+    <!-- Interior Doorway Arch with translucent fill -->
+    <path d="M10 21v-4a2 2 0 012-2h0a2 2 0 012 2v4" fill="#FFFFFF" fill-opacity="0.25" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+
+    <!-- Apartment Tower Walls & Foundation -->
+    <path d="M5 10.5V20a1 1 0 001 1h4V12h4v9h4a1 1 0 001-1V10.5" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Main Residential Gable Roof (High-Contrast Hero Accent) -->
+    <path d="M3 10.5L12 3l9 7.5" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Modern Windows -->
+    <rect x="7" y="13" width="2" height="2" rx="0.5" fill="#FFFFFF"/>
+    <rect x="15" y="13" width="2" height="2" rx="0.5" fill="#FFFFFF"/>
+  </g>
+</svg>
