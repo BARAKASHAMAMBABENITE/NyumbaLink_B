@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -15,8 +15,17 @@ const app = !getApps().length
   ? initializeApp(firebaseConfig)
   : getApp();
 
+// Firebase Authentication
 export const auth = getAuth(app);
 
+// Connexion avec Google
+export const googleProvider = new GoogleAuthProvider();
+
+googleProvider.setCustomParameters({
+  prompt: 'select_account',
+});
+
+// Firestore
 export const db = getFirestore(
   app,
   import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)'
