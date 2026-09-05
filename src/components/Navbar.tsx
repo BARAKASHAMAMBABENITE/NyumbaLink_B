@@ -238,24 +238,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </span>
               )}
             </button>
-
-            {/* Mobilier partenaires */}
-            {openPartnerFurnitureModal && (
-              <button
-                type="button"
-                onClick={openPartnerFurnitureModal}
-                className="px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center space-x-1.5 bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 border border-amber-500/30"
-                title="Mobilier & Équipements de nos Partenaires"
-              >
-                <span>🛋️</span>
-
-                <span>
-                  {language === 'en'
-                    ? 'Furniture & Gear'
-                    : 'Mobilier Partenaires'}
-                </span>
-              </button>
-            )}
           </nav>
 
           {/* =====================================================
