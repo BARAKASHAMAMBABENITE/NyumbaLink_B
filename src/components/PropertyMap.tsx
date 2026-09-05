@@ -97,7 +97,7 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({
     map.invalidateSize();
 
     const targetCoords: [number, number] =
-      centerCoordinates && centerCoordinates[0] && centerCoordinates[1]
+      centerCoordinates && typeof centerCoordinates[0] === 'number' && typeof centerCoordinates[1] === 'number'
         ? centerCoordinates
         : BUKAVU_CENTER;
 
@@ -135,7 +135,7 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({
     };
   }, [pickerMode, onPickCoordinates, centerCoordinates?.[0], centerCoordinates?.[1]]);
 
-  // Update Markers when Properties change
+  // Update Markers when Properties change (with strict validation against undefined/NaN coordinates)
   useEffect(() => {
     const map = mapInstanceRef.current;
     const markersGroup = markersGroupRef.current;
@@ -143,7 +143,17 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({
 
     markersGroup.clearLayers();
 
-    properties.forEach((prop) => {
+    // Filter properties to guarantee valid numeric latitude and longitude
+    const validProperties = properties.filter(
+      (prop) =>
+        prop &&
+        typeof prop.latitude === 'number' &&
+        !isNaN(prop.latitude) &&
+        typeof prop.longitude === 'number' &&
+        !isNaN(prop.longitude)
+    );
+
+    validProperties.forEach((prop) => {
       const isSelected = selectedProperty?.id === prop.id;
 
       // Custom HTML Marker Pin (Clean - Neighborhood only)
@@ -167,7 +177,7 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({
             transform: ${isSelected ? 'scale(1.15)' : 'scale(1)'};
             transition: transform 0.2s;
           ">
-            <span>📍 ${prop.neighborhood}</span>
+            <span>📍 ${prop.neighborhood || 'Bukavu'}</span>
           </div>
         `,
         iconSize: [110, 28],
@@ -176,14 +186,20 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({
 
       const marker = L.marker([prop.latitude, prop.longitude], { icon: customIcon });
 
-      // Popup Content (Cleaned - No views count)
+      const firstImage = prop.images && prop.images.length > 0 ? prop.images[0] : '';
+
+      // Popup Content (Cleaned)
       const popupContent = document.createElement('div');
       popupContent.innerHTML = `
         <div style="font-family: 'Inter', sans-serif; max-width: 200px;">
-          <img src="${prop.images[0]}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px 8px 0 0;" />
+          ${
+            firstImage
+              ? `<img src="${firstImage}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 8px 8px 0 0;" />`
+              : ''
+          }
           <div style="padding: 10px;">
-            <div style="font-size: 10px; font-weight: 800; color: #FF385C; text-transform: uppercase;">📍 Quartier ${prop.neighborhood}</div>
-            <div style="font-size: 12px; font-weight: 700; color: #222222; margin: 4px 0 8px 0; line-height: 1.3;">${prop.title}</div>
+            <div style="font-size: 10px; font-weight: 800; color: #FF385C; text-transform: uppercase;">📍 Quartier ${prop.neighborhood || 'Bukavu'}</div>
+            <div style="font-size: 12px; font-weight: 700; color: #222222; margin: 4px 0 8px 0; line-height: 1.3;">${prop.title || 'Propriété'}</div>
             <button id="view-details-${prop.id}" style="
               width: 100%;
               background-color: #222222;
@@ -218,9 +234,15 @@ export const PropertyMap: React.FC<PropertyMapProps> = ({
       markersGroup.addLayer(marker);
     });
 
-    if (centerCoordinates) {
+    if (centerCoordinates && typeof centerCoordinates[0] === 'number' && typeof centerCoordinates[1] === 'number') {
       map.setView(centerCoordinates, 15);
-    } else if (selectedProperty) {
+    } else if (
+      selectedProperty &&
+      typeof selectedProperty.latitude === 'number' &&
+      !isNaN(selectedProperty.latitude) &&
+      typeof selectedProperty.longitude === 'number' &&
+      !isNaN(selectedProperty.longitude)
+    ) {
       map.setView([selectedProperty.latitude, selectedProperty.longitude], 15);
     }
   }, [properties, selectedProperty, centerCoordinates, pickerMode]);

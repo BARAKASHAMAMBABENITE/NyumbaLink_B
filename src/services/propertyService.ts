@@ -41,18 +41,26 @@ const isRealUserProperty = (p: Property): boolean => {
   return true;
 };
 
-// Strict category specification: surface (m²) ONLY belongs to parcelles in Bukavu
+// Nettoyage strict : supprime complètement les clés undefined ou non désirées selon la catégorie
 export const sanitizePropertySpecs = (p: Property): Property => {
   if (!p) return p;
-  const sanitized = { ...p };
+  const sanitized: any = { ...p };
+  
   if (sanitized.category !== 'parcelle') {
-    sanitized.surface = undefined;
+    delete sanitized.surface;
   } else {
-    // Parcelles don't have bedrooms/bathrooms
-    sanitized.bedrooms = undefined;
-    sanitized.bathrooms = undefined;
+    delete sanitized.bedrooms;
+    delete sanitized.bathrooms;
   }
-  return sanitized;
+
+  // Suppression de TOUTES les valeurs undefined pour éviter l'erreur Firestore
+  Object.keys(sanitized).forEach((key) => {
+    if (sanitized[key] === undefined || sanitized[key] === null) {
+      delete sanitized[key];
+    }
+  });
+
+  return sanitized as Property;
 };
 
 const getLocalProperties = (): Property[] => {
@@ -97,7 +105,6 @@ export const getAllProperties = async (): Promise<Property[]> => {
           remoteList.push(sanitizePropertySpecs(item));
         }
       });
-      // Merge remote list and local list so no user-created property is ever lost
       const map = new Map<string, Property>();
       localList.forEach((p) => {
         if (isRealUserProperty(p)) map.set(p.id, sanitizePropertySpecs(p));
@@ -112,11 +119,10 @@ export const getAllProperties = async (): Promise<Property[]> => {
       saveLocalProperties(merged);
       return merged;
     } else {
-      // Remote collection is empty: do not wipe local properties!
       return localList;
     }
   } catch (err) {
-    console.warn('Firestore fetch failed or offline, falling back to cached local properties:', err);
+    console.warn('Firestore fetch failed, falling back to local properties:', err);
     return localList;
   }
 };
@@ -141,7 +147,7 @@ export const addPropertyToStore = async (newProp: Omit<Property, 'id' | 'viewsCo
   const generatedId = `prop_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
   const { commune, neighborhood } = sanitizeBukavuLocation(newProp.commune, newProp.neighborhood);
 
-  const fullProperty: Property = {
+  const rawProperty: Property = {
     ...newProp,
     commune,
     neighborhood,
@@ -149,6 +155,8 @@ export const addPropertyToStore = async (newProp: Omit<Property, 'id' | 'viewsCo
     viewsCount: 1,
     createdAt: new Date().toISOString()
   };
+
+  const fullProperty = sanitizePropertySpecs(rawProperty);
 
   try {
     await setDoc(doc(db, 'properties', generatedId), fullProperty);
@@ -168,7 +176,7 @@ export const updatePropertyInStore = async (id: string, updates: Partial<Propert
   const index = currentLocal.findIndex((p) => p.id === id);
   if (index === -1) return null;
 
-  let sanitizedUpdates = { ...updates };
+  let sanitizedUpdates: any = { ...updates };
   if (updates.commune || updates.neighborhood) {
     const currentItem = currentLocal[index];
     const { commune, neighborhood } = sanitizeBukavuLocation(
@@ -179,14 +187,20 @@ export const updatePropertyInStore = async (id: string, updates: Partial<Propert
     sanitizedUpdates.neighborhood = neighborhood;
   }
 
-  const updatedItem: Property = {
+  Object.keys(sanitizedUpdates).forEach((key) => {
+    if (sanitizedUpdates[key] === undefined || sanitizedUpdates[key] === null) {
+      delete sanitizedUpdates[key];
+    }
+  });
+
+  const updatedItem: Property = sanitizePropertySpecs({
     ...currentLocal[index],
     ...sanitizedUpdates,
     updatedAt: new Date().toISOString()
-  };
+  });
 
   try {
-    await updateDoc(doc(db, 'properties', id), sanitizedUpdates as Record<string, unknown>);
+    await updateDoc(doc(db, 'properties', id), sanitizedUpdates);
   } catch (e) {
     console.warn('Firestore updateDoc warning:', e);
   }
@@ -245,7 +259,6 @@ export const getTrashProperties = (): TrashPropertyItem[] => {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         const now = Date.now();
-        // Automatic permanent purge of items in trash for > 60 days
         const valid = parsed.filter((item: TrashPropertyItem) => {
           if (!item.deletedAt) return false;
           const age = now - new Date(item.deletedAt).getTime();
@@ -276,7 +289,6 @@ export const deletePropertyFromStore = async (id: string): Promise<boolean> => {
   const target = currentLocal.find((p) => p.id === id);
 
   if (target) {
-    // Add to trash bin before removing with timestamp
     const currentTrash = getTrashProperties();
     const updatedTrash = [{ property: target, deletedAt: new Date().toISOString() }, ...currentTrash];
     saveTrashProperties(updatedTrash);
@@ -309,7 +321,6 @@ export const restorePropertyFromTrash = async (id: string): Promise<Property | n
   const currentLocal = getLocalProperties();
   saveLocalProperties([restoredProperty, ...currentLocal]);
 
-  // Remove from trash
   const updatedTrash = currentTrash.filter((t) => t.property.id !== id);
   saveTrashProperties(updatedTrash);
 
@@ -360,14 +371,9 @@ export const emptyTrash = (): boolean => {
   return true;
 };
 
-/**
- * Checks if a property belongs to an active agent / admin.
- * If the agent's subscription is expired, their properties are automatically hidden from public catalogs.
- */
 export const isPropertyActiveAndVisible = (property: Property): boolean => {
   if (!property) return false;
 
-  // Admin properties are always visible
   if (
     property.ownerRole === 'admin' ||
     property.ownerEmail === 'benbarakashamamba@gmail.com'
@@ -375,15 +381,13 @@ export const isPropertyActiveAndVisible = (property: Property): boolean => {
     return true;
   }
 
-  // If the property has an explicit ownerExpiresAt timestamp, check if still valid
   if (property.ownerExpiresAt) {
     const expiresTimestamp = new Date(property.ownerExpiresAt).getTime();
     if (!isNaN(expiresTimestamp) && expiresTimestamp <= Date.now()) {
-      return false; // Forfait agent expiré
+      return false;
     }
   }
 
-  // Cross check with current registered users database in localStorage if available
   try {
     const raw = localStorage.getItem('nyumba_registered_users');
     if (raw) {
@@ -400,7 +404,7 @@ export const isPropertyActiveAndVisible = (property: Property): boolean => {
           if (owner.role === 'agent' && owner.agentExpiresAt) {
             const exp = new Date(owner.agentExpiresAt).getTime();
             if (!isNaN(exp) && exp <= Date.now()) {
-              return false; // Abonnement expiré
+              return false;
             }
           }
         }
@@ -419,12 +423,10 @@ export const filterPropertiesList = (
   includeExpired: boolean = false
 ): Property[] => {
   return properties.filter((p) => {
-    // If agent subscription is expired, hide from public catalogue unless explicitly requested (e.g. in Admin dashboard)
     if (!includeExpired && !isPropertyActiveAndVisible(p)) {
       return false;
     }
 
-    // Search query
     if (options.searchQuery.trim()) {
       const q = options.searchQuery.toLowerCase().trim();
       const matchTitle = p.title.toLowerCase().includes(q);
@@ -437,31 +439,26 @@ export const filterPropertiesList = (
       }
     }
 
-    // Commune (Ibanda, Kadutu, Bagira)
     if (options.commune && options.commune !== 'tous') {
       if (p.commune && p.commune.toLowerCase() !== options.commune.toLowerCase()) {
         return false;
       }
     }
 
-    // Category
     if (options.category !== 'tous' && p.category !== options.category) {
       return false;
     }
 
-    // Type (Vente / Location)
     if (options.type !== 'tous' && p.type !== options.type) {
       return false;
     }
 
-    // Neighborhood
     if (options.neighborhood && options.neighborhood !== 'tous') {
       if (p.neighborhood.toLowerCase() !== options.neighborhood.toLowerCase()) {
         return false;
       }
     }
 
-    // Price Range
     if (typeof options.minPrice === 'number' && p.price < options.minPrice) {
       return false;
     }
@@ -469,17 +466,14 @@ export const filterPropertiesList = (
       return false;
     }
 
-    // Bedrooms
     if (typeof options.minBedrooms === 'number' && p.bedrooms) {
       if (p.bedrooms < options.minBedrooms) return false;
     }
 
-    // Bathrooms
     if (typeof options.minBathrooms === 'number' && p.bathrooms) {
       if (p.bathrooms < options.minBathrooms) return false;
     }
 
-    // Features
     if (options.features.length > 0) {
       const hasAllFeatures = options.features.every((f) =>
         p.features.some((pf) => pf.toLowerCase().includes(f.toLowerCase()))
@@ -492,7 +486,6 @@ export const filterPropertiesList = (
     if (options.sortBy === 'price_asc') return a.price - b.price;
     if (options.sortBy === 'price_desc') return b.price - a.price;
     if (options.sortBy === 'popular') return (b.viewsCount || 0) - (a.viewsCount || 0);
-    // Default 'recent'
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 };
