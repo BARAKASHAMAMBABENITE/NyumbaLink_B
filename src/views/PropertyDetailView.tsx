@@ -228,7 +228,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
         {/* Thumbnail Selector Column */}
         <div className="lg:col-span-3 flex lg:flex-col gap-3 overflow-x-auto lg:overflow-y-auto max-h-[420px]">
-          {property.images.map((img, idx) => (
+          {(property.images || []).map((img, idx) => (
             <button
               key={idx}
               onClick={() => setSelectedImageIndex(idx)}
@@ -276,7 +276,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
               <div className="text-left lg:text-right">
                 <p className="text-3xl font-extrabold text-[#222222] dark:text-[#f7f7f7]">
-                  ${property.price.toLocaleString()}
+                  ${property.price?.toLocaleString()}
                 </p>
                 {property.type === 'location' && (
                   <p className="text-xs font-bold text-[#717171] dark:text-[#b0b0b0]">par mois</p>
@@ -328,7 +328,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                 Équipements & Prestations
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {property.features.map((feat, idx) => (
+                {(property.features || []).map((feat, idx) => (
                   <div
                     key={idx}
                     className="flex items-center space-x-2 bg-[#f7f7f7] dark:bg-[#121212] p-2.5 rounded-xl border border-[#ebebeb] dark:border-[#2e2e2e] text-xs font-semibold text-[#222222] dark:text-[#f7f7f7]"
