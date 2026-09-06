@@ -116,7 +116,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
       const file = files[i];
 
       try {
-        // Step 1: Validate with AI
         setUploadStatus('validating');
         const validation = await validatePropertyImageWithAI(file);
 
@@ -130,14 +129,12 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
           continue;
         }
 
-        // Step 2: Upload only if valid real-estate
         setUploadStatus('uploading');
         const cloudinaryRes = await uploadImageToCloudinary(file);
         if (cloudinaryRes?.url) {
           setImages((prev) => [...prev, cloudinaryRes.url]);
           acceptedCount++;
         } else {
-          // Fallback to Data URL if upload service is unavailable
           const reader = new FileReader();
           reader.onloadend = () => {
             if (reader.result) {
@@ -234,7 +231,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     e.preventDefault();
     setImageError(null);
 
-    // Strict validation: Bukavu 3 Communes only
     const validCommunes: BukavuCommune[] = ['Ibanda', 'Kadutu', 'Bagira'];
     if (!validCommunes.includes(commune)) {
       setImageError("Le bien immobilier doit obligatoirement être situé dans l'une des 3 communes de Bukavu (Ibanda, Kadutu ou Bagira).");
@@ -282,7 +278,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
         images,
         ownerId: user?.uid || 'agent-001',
         ownerName: user?.fullname || 'Agent Immobilier NyumbaLink',
-        ownerPhone: user?.phone || '+243998123456',
+        ownerPhone: user?.phone && user.phone.trim() !== '' ? user.phone : '+243986760178',
         ownerEmail: user?.email,
         ownerRole: user?.role || 'agent',
         ownerExpiresAt: user?.agentExpiresAt,
@@ -316,7 +312,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Title */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
               Titre de l'Annonce
@@ -331,7 +326,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             />
           </div>
 
-          {/* Type & Category & Commune & Neighborhood */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
@@ -413,7 +407,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             </div>
           </div>
 
-          {/* Price & Specs */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
@@ -492,7 +485,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             )}
           </div>
 
-          {/* Address & GPS Location Picker Map */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
               Adresse à Bukavu
@@ -526,7 +518,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
               Description du Bien
@@ -541,7 +532,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             />
           </div>
 
-          {/* Feature Checkboxes (Hidden for Parcelle) */}
           {category !== 'parcelle' && (
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-2">
@@ -576,7 +566,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             </div>
           )}
 
-          {/* Image Upload Section */}
           <div className="bg-slate-50/80 dark:bg-[#121212] p-4 rounded-2xl border border-slate-200/80 dark:border-[#2e2e2e] space-y-4">
             <div className="flex items-center justify-between">
               <label className="block text-xs font-black text-slate-800 dark:text-[#f7f7f7] uppercase tracking-wider flex items-center">
@@ -585,7 +574,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               </label>
             </div>
 
-            {/* Error Message */}
             {imageError && (
               <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl space-y-1 text-rose-700 dark:text-rose-300 text-xs animate-in fade-in">
                 <div className="flex items-start space-x-2.5">
@@ -598,7 +586,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               </div>
             )}
 
-            {/* Success Message */}
             {imageSuccessMsg && !imageError && (
               <div className="p-2.5 bg-slate-100 dark:bg-[#252525] border border-slate-200 dark:border-[#383838] rounded-xl flex items-center space-x-2 text-slate-800 dark:text-slate-200 text-xs animate-in fade-in">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-[#FF385C]" />
@@ -606,7 +593,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               </div>
             )}
 
-            {/* Hidden File Inputs */}
             <input
               ref={galleryInputRef}
               type="file"
@@ -624,7 +610,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               className="hidden"
             />
 
-            {/* File Pickers: Galerie vs Caméra */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
@@ -657,7 +642,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               </button>
             </div>
 
-            {/* Uploading Progress */}
             {uploadingImage && (
               <div className="p-3 bg-[#FF385C]/10 border border-[#FF385C]/30 rounded-xl space-y-2 animate-in fade-in">
                 <div className="flex items-center justify-between text-xs font-bold text-[#FF385C]">
@@ -669,7 +653,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               </div>
             )}
 
-            {/* Preview Grid */}
             {images.length > 0 && (
               <div>
                 <span className="block text-[11px] font-bold text-slate-600 dark:text-[#b0b0b0] uppercase mb-2">
@@ -704,7 +687,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             )}
           </div>
 
-          {/* Submit Button */}
           <div className="pt-4 border-t border-[#ebebeb] dark:border-[#2e2e2e] flex items-center justify-end space-x-3">
             <button
               type="button"
@@ -716,14 +698,10 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             <button
               type="submit"
               disabled={submitting}
-              className="bg-gradient-to-r from-[#FF385C] to-[#E00B41] hover:opacity-95 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition shadow-md flex items-center space-x-2"
+              className="bg-gradient-to-r from-[#FF385C] to-[#E61E4D] text-white px-6 py-2.5 rounded-xl text-xs font-bold shadow-md hover:opacity-95 transition disabled:opacity-50 flex items-center space-x-2 cursor-pointer"
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Building2 className="w-4 h-4" />
-              )}
-              <span>Publier sur NyumbaLink</span>
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>Publier l'annonce  </span>
             </button>
           </div>
         </form>

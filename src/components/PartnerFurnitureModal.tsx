@@ -18,7 +18,8 @@ import {
   Phone,
   Mail,
   ShieldCheck,
-  RefreshCw
+  RefreshCw,
+  X
 } from 'lucide-react';
 import { PartnerFurnitureItem, PartnerItemCategory, UserProfile, BukavuCommune } from '../types';
 import {
@@ -131,7 +132,6 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
 
-      // Check file type
       if (!file.type.startsWith('image/')) {
         setFormError('Veuillez sélectionner un fichier image valide (JPG, PNG, WEBP).');
         setValidatingImage(false);
@@ -143,7 +143,6 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
         if (reader.result) {
           const base64 = reader.result as string;
 
-          // AI vision validation for furniture & appliances
           try {
             const val = await validateFurnitureImageWithAI(base64);
             if (!val.isFurniture && !val.isRealEstate) {
@@ -181,7 +180,6 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
       return;
     }
 
-    // Default category images if none uploaded
     const defaultImagesMap: Record<PartnerItemCategory, string> = {
       canape: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80',
       table: 'https://images.unsplash.com/photo-1617806118233-18e1de247200?auto=format&fit=crop&w=800&q=80',
@@ -231,27 +229,20 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
     }
   };
 
-  // Immediate delete handler
   const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     e.preventDefault();
 
     try {
-      // 1. Immediately update UI state
       setItems((prev) => prev.filter((i) => i.id !== id));
-
-      // 2. Remove from local storage cache
       const local = getCachedPartnerFurniture().filter((i) => i.id !== id);
       saveCachedPartnerFurniture(local);
-
-      // 3. Delete from Firestore asynchronously
       await deletePartnerFurnitureItem(id);
 
       setToastMessage('Équipement supprimé avec succès.');
       setTimeout(() => setToastMessage(null), 3000);
     } catch (err) {
       console.error('Error deleting furniture:', err);
-      // Even if remote network fails, local update is already confirmed
       setToastMessage('Équipement retiré de la liste.');
       setTimeout(() => setToastMessage(null), 3000);
     }
@@ -269,7 +260,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
 
     setSendingMessage(true);
     try {
-      addInquiry({
+      await addInquiry({
         propertyId: messagingItem.id,
         propertyTitle: `[Mobilier] ${messagingItem.title}`,
         propertyNeighborhood: `${messagingItem.neighborhood}, ${messagingItem.commune}`,
@@ -277,6 +268,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
         propertyPrice: messagingItem.price,
         propertyImage: messagingItem.images[0],
         propertyOwnerId: messagingItem.partnerId,
+        recipientId: messagingItem.partnerId,
         propertyOwnerName: messagingItem.partnerName,
         propertyOwnerPhone: messagingItem.partnerPhone,
         propertyOwnerEmail: messagingItem.partnerEmail,
@@ -322,11 +314,9 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
               🛋️
             </div>
             <div>
-              <div className="flex items-center space-x-2">
-                <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
-                  Partenaires Mobilier & Équipements
-                </h2>
-              </div>
+              <h2 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+                Partenaires Mobilier & Équipements
+              </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                 Consultez et contactez les partenaires pour vos meubles et équipements à Bukavu
               </p>
@@ -348,6 +338,13 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
               <Plus className="w-4 h-4" />
               <span>{showAddForm ? 'Fermer le formulaire' : 'Publier un Équipement'}</span>
             </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -359,7 +356,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
           </div>
         )}
 
-        {/* Add Form Drawer / Accordion with full scrollability */}
+        {/* Add Form Drawer */}
         {showAddForm && (
           <div className="p-5 bg-slate-50 dark:bg-[#202020] border-b border-slate-200 dark:border-[#333] max-h-[70vh] overflow-y-auto space-y-4">
             <div className="flex items-center justify-between">
@@ -562,7 +559,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
                         <button
                           type="button"
                           onClick={() => setFormImages((prev) => prev.filter((_, i) => i !== idx))}
-                          className="absolute inset-0 bg-red-600/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition"
+                          className="absolute inset-0 bg-red-600/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -674,98 +671,93 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
                     ? { text: 'Neuf', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' }
                     : item.condition === 'tres_bon_etat'
                     ? { text: 'Très bon état', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' }
-                    : { text: 'Bon état (Occasion)', color: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' };
-
-                const phoneDigits = item.partnerPhone.replace(/\D/g, '');
-                const whatsappUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(
-                  `Bonjour ${item.partnerName}, je suis intéressé par votre article "${item.title}" à ${item.price}$ USD vu sur NyumbaLink Bukavu.`
-                )}`;
+                    : { text: 'Bon état', color: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' };
 
                 return (
                   <div
                     key={item.id}
-                    className="bg-white dark:bg-[#1e1e1e] rounded-2xl border border-slate-200 dark:border-[#2e2e2e] overflow-hidden shadow-xs hover:shadow-md transition flex flex-col group"
+                    className="bg-white dark:bg-[#202020] border border-slate-200 dark:border-[#2e2e2e] rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between"
                   >
-                    {/* Image Box */}
-                    <div className="relative aspect-4/3 bg-slate-100 dark:bg-[#121212] overflow-hidden">
-                      <img
-                        src={item.images[0] || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80'}
-                        alt={item.title}
-                        referrerPolicy="no-referrer"
-                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
-                      />
-                      <div className="absolute top-2.5 left-2.5 flex items-center space-x-1.5">
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${conditionBadge.color}`}>
-                          {conditionBadge.text}
-                        </span>
-                      </div>
-                      <div className="absolute top-2.5 right-2.5 bg-black/75 backdrop-blur-xs text-white text-xs font-black px-2.5 py-1 rounded-xl">
-                        ${item.price} USD
-                      </div>
-
-                      {/* Supprimer Button (Works 100% reliably) */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleDelete(e, item.id)}
-                        className="absolute bottom-2.5 right-2.5 p-2 bg-red-600/90 hover:bg-red-700 text-white rounded-xl transition shadow-md cursor-pointer flex items-center space-x-1 text-[11px] font-bold z-10"
-                        title="Supprimer cet équipement"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Supprimer</span>
-                      </button>
-                    </div>
-
-                    {/* Card Content */}
-                    <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                      <div>
-                        <div className="flex items-center space-x-1.5 text-[11px] text-slate-500 dark:text-slate-400 mb-1">
-                          <MapPin className="w-3.5 h-3.5 text-[#FF385C]" />
-                          <span className="font-semibold">{item.neighborhood}, {item.commune}</span>
+                    <div>
+                      {/* Image container */}
+                      <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <img
+                          src={item.images[0] || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80'}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute top-2.5 left-2.5 flex items-center space-x-1">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase shadow-xs ${conditionBadge.color}`}>
+                            {conditionBadge.text}
+                          </span>
                         </div>
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white line-clamp-2">
+                        <div className="absolute top-2.5 right-2.5">
+                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-900/80 text-white backdrop-blur-xs">
+                            {item.price}$
+                          </span>
+                        </div>
+
+                        {/* Bouton de suppression si l'utilisateur est le propriétaire */}
+                        {user && (user.uid === item.partnerId || user.role === 'admin') && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleDelete(e, item.id)}
+                            className="absolute bottom-2.5 right-2.5 p-2 bg-red-600/90 hover:bg-red-700 text-white rounded-xl shadow-md transition cursor-pointer"
+                            title="Supprimer l'article"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Content details */}
+                      <div className="p-4 space-y-2">
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                          <span className="flex items-center space-x-1 font-semibold text-[#FF385C]">
+                            <MapPin className="w-3.5 h-3.5" />
+                            <span>{item.neighborhood}, {item.commune}</span>
+                          </span>
+                          <span>Par {item.partnerName}</span>
+                        </div>
+
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
                           {item.title}
                         </h4>
-                        <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 mt-1.5">
+
+                        <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
                           {item.description}
                         </p>
                       </div>
+                    </div>
 
-                      {/* Partner Contact Actions */}
-                      <div className="pt-2 border-t border-slate-100 dark:border-[#2a2a2a] space-y-2">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-500 dark:text-slate-400 truncate max-w-[150px]">
-                            {item.partnerName}
-                          </span>
-                          <span className="font-mono text-slate-700 dark:text-slate-300 font-bold text-[10px]">
-                            {item.partnerPhone}
-                          </span>
-                        </div>
+                    {/* Footer Actions (WhatsApp & NyumbaLink Message) */}
+                    <div className="p-4 pt-0 grid grid-cols-2 gap-2 mt-2">
+                      <a
+                        href={`https://wa.me/${item.partnerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                          `Bonjour ${item.partnerName}, je suis intéressé par votre article "${item.title}" (${item.price}$) vu sur NyumbaLink.`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>WhatsApp</span>
+                      </a>
 
-                        {/* Dual Contact Options: WhatsApp + NyumbaLink Message */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <a
-                            href={whatsappUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center space-x-1.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-xl shadow-xs transition cursor-pointer"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            <span>WhatsApp</span>
-                          </a>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMessagingItem(item);
-                              setSenderMessage(`Bonjour ${item.partnerName}, je souhaite commander ou avoir des détails sur "${item.title}" (${item.price}$).`);
-                            }}
-                            className="flex items-center justify-center space-x-1.5 py-2.5 bg-[#FF385C] hover:bg-[#e00b41] text-white text-[11px] font-bold rounded-xl shadow-xs transition cursor-pointer"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            <span>Message NyumbaLink</span>
-                          </button>
-                        </div>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!user && onRequireAuth) {
+                            onRequireAuth();
+                            return;
+                          }
+                          setMessagingItem(item);
+                        }}
+                        className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        <span>Message</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -774,126 +766,90 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-100 dark:border-[#2a2a2a] bg-slate-50 dark:bg-[#181818] flex items-center justify-between text-xs text-slate-500">
-          <span>{filteredItems.length} article(s) de mobilier disponible(s) à Bukavu</span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 bg-slate-200 dark:bg-[#2c2c2c] hover:bg-slate-300 dark:hover:bg-[#383838] text-slate-800 dark:text-slate-200 rounded-xl font-bold transition cursor-pointer"
-          >
-            Fermer
-          </button>
-        </div>
-      </div>
-
-      {/* Embedded Modal: Send Message to Partner via NyumbaLink */}
-      {messagingItem && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs">
-          <div className="relative w-full max-w-md bg-white dark:bg-[#1c1c1c] rounded-3xl border border-slate-200 dark:border-[#333] shadow-2xl p-5 sm:p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2a2a2a] pb-3">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#FF385C]/10 text-[#FF385C] flex items-center justify-center font-bold">
-                  <Send className="w-4 h-4" />
-                </div>
-                <div>
+        {/* Modal Interne d'Envoi de Message NyumbaLink */}
+        {messagingItem && (
+          <div className="absolute inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-[#333] shadow-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2a2a2a] pb-3">
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#FF385C]/10 flex items-center justify-center text-[#FF385C]">
+                    <MessageCircle className="w-4 h-4" />
+                  </div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Envoyer un message à {messagingItem.partnerName}
+                    Contacter {messagingItem.partnerName}
                   </h3>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Pour : {messagingItem.title} ({messagingItem.price}$)
-                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setMessagingItem(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            </div>
 
-            <form onSubmit={handleSendMessage} className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Votre Nom Complet
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <form onSubmit={handleSendMessage} className="space-y-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    Votre Nom complet
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="Ex: David Amisi"
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                   />
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                     Votre Téléphone / WhatsApp
                   </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="tel"
-                      required
-                      placeholder="+243..."
-                      value={senderPhone}
-                      onChange={(e) => setSenderPhone(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                    />
-                  </div>
+                  <input
+                    type="tel"
+                    required
+                    value={senderPhone}
+                    onChange={(e) => setSenderPhone(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Email (Optionnel)
+                    Votre Message
                   </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="email"
-                      placeholder="client@gmail.com"
-                      value={senderEmail}
-                      onChange={(e) => setSenderEmail(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                    />
-                  </div>
+                  <textarea
+                    rows={3}
+                    required
+                    value={senderMessage}
+                    onChange={(e) => setSenderMessage(e.target.value)}
+                    placeholder={`Bonjour, je suis intéressé par votre article "${messagingItem.title}" (${messagingItem.price}$). Est-il toujours disponible ?`}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                  />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Votre Message
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={senderMessage}
-                  onChange={(e) => setSenderMessage(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-2 border-t border-slate-100 dark:border-[#2a2a2a]">
-                <button
-                  type="button"
-                  onClick={() => setMessagingItem(null)}
-                  className="px-4 py-2 border border-slate-200 dark:border-[#333] text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={sendingMessage}
-                  className="px-5 py-2 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl shadow-xs transition disabled:opacity-50 flex items-center space-x-1.5 cursor-pointer"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{sendingMessage ? 'Envoi...' : 'Envoyer le message'}</span>
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end space-x-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setMessagingItem(null)}
+                    className="px-4 py-2 border border-slate-200 dark:border-[#333] text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={sendingMessage}
+                    className="px-5 py-2 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
+                  >
+                    {sendingMessage ? 'Envoi...' : 'Envoyer le message'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };
