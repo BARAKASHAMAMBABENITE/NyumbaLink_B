@@ -3,23 +3,14 @@ import {
   Plus,
   Search,
   MessageCircle,
-  Sparkles,
-  Tag,
   MapPin,
   Trash2,
   CheckCircle,
-  Package,
-  Layers,
-  Upload,
   Camera,
   AlertCircle,
   Send,
-  User,
-  Phone,
-  Mail,
-  ShieldCheck,
-  RefreshCw,
-  X
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import { PartnerFurnitureItem, PartnerItemCategory, UserProfile, BukavuCommune } from '../types';
 import {
@@ -53,6 +44,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [roleAlertMessage, setRoleAlertMessage] = useState<string | null>(null);
   const [validatingImage, setValidatingImage] = useState(false);
 
   // Message NyumbaLink modal state
@@ -77,7 +69,6 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
   const [formError, setFormError] = useState<string | null>(null);
   const [isCertifiedFurniture, setIsCertifiedFurniture] = useState<boolean>(true);
 
-  // Categories list
   const categoriesConfig: { id: string; label: string; icon: string }[] = [
     { id: 'tous', label: 'Tous les Biens', icon: '✨' },
     { id: 'canape', label: 'Canapés & Salons', icon: '🛋️' },
@@ -114,7 +105,6 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
     }
   }, [user]);
 
-  // Keep official neighborhoods synchronized with selected Commune
   useEffect(() => {
     const availableHoods = BUKAVU_COMMUNES_WITH_NEIGHBORHOODS[formCommune] || [];
     if (availableHoods.length > 0 && !availableHoods.includes(formNeighborhood)) {
@@ -122,7 +112,6 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
     }
   }, [formCommune]);
 
-  // Handle image upload with AI verification
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -219,7 +208,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
       setFormPrice('');
       setFormDescription('');
       setFormImages([]);
-      setToastMessage('Votre équipement a été publié avec succès dans Partenaires Mobilier & Équipements !');
+      setToastMessage('Votre équipement a été publié avec succès !');
       setTimeout(() => setToastMessage(null), 4000);
     } catch (err) {
       console.error(err);
@@ -233,6 +222,11 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
     e.stopPropagation();
     e.preventDefault();
 
+    if (!user || (user.role !== 'admin' && user.uid !== items.find(i => i.id === id)?.partnerId)) {
+      setRoleAlertMessage("Action non autorisée : Seul l'administrateur ou le propriétaire de l'annonce peut supprimer cet équipement.");
+      return;
+    }
+
     try {
       setItems((prev) => prev.filter((i) => i.id !== id));
       const local = getCachedPartnerFurniture().filter((i) => i.id !== id);
@@ -243,12 +237,11 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
       setTimeout(() => setToastMessage(null), 3000);
     } catch (err) {
       console.error('Error deleting furniture:', err);
-      setToastMessage('Équipement retiré de la liste.');
+      setToastMessage('Erreur lors de la suppression.');
       setTimeout(() => setToastMessage(null), 3000);
     }
   };
 
-  // Handle NyumbaLink internal message submit
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!messagingItem) return;
@@ -276,17 +269,17 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
         senderName: senderName.trim(),
         senderPhone: senderPhone.trim(),
         senderEmail: senderEmail.trim() || undefined,
-        message: senderMessage.trim() || `Bonjour ${messagingItem.partnerName}, je suis intéressé par votre article "${messagingItem.title}" (${messagingItem.price}$) disponible à ${messagingItem.neighborhood}. Pouvons-nous échanger ?`,
+        message: senderMessage.trim() || `Bonjour agent, je suis ${senderName.trim()} et je souhaite me renseigner sur le bien "${messagingItem.title}" (${messagingItem.price}$) disponible à ${messagingItem.neighborhood}.`,
         channel: 'direct'
       });
 
       setMessagingItem(null);
       setSenderMessage('');
-      setToastMessage(`Votre message a été transmis directement à ${messagingItem.partnerName} sur NyumbaLink !`);
+      setToastMessage(`Votre message a été transmis directement à ${messagingItem.partnerName} !`);
       setTimeout(() => setToastMessage(null), 4000);
     } catch (err) {
       console.error('Error sending message:', err);
-      alert('Erreur lors de l’envoi du message. Veuillez réessayer ou contacter directement via WhatsApp.');
+      alert('Erreur lors de l’envoi du message.');
     } finally {
       setSendingMessage(false);
     }
@@ -307,8 +300,9 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
       <div className="relative w-full max-w-5xl bg-white dark:bg-[#181818] rounded-3xl border border-slate-200 dark:border-[#2e2e2e] shadow-2xl overflow-hidden my-auto max-h-[92vh] flex flex-col">
-        {/* Header */}
-        <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-[#2a2a2a] flex items-center justify-between bg-slate-50/50 dark:bg-white/5">
+        
+        {/* Header Principal */}
+        <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-[#2a2a2a] flex items-center justify-between bg-slate-50/50 dark:bg-white/5 shrink-0">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-[#FF385C]/10 dark:bg-[#FF385C]/20 flex items-center justify-center text-xl">
               🛋️
@@ -324,271 +318,250 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <button
-              type="button"
-              onClick={() => {
-                if (!user && onRequireAuth) {
-                  onRequireAuth();
-                  return;
-                }
-                setShowAddForm(!showAddForm);
-              }}
-              className="flex items-center space-x-1.5 px-3.5 sm:px-4 py-2 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>{showAddForm ? 'Fermer le formulaire' : 'Publier un Équipement'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {!showAddForm && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user && onRequireAuth) {
+                    onRequireAuth();
+                    return;
+                  }
+                  if (user && user.role !== 'agent' && user.role !== 'partner' && user.role !== 'admin') {
+                    setRoleAlertMessage("Réservé aux Agents et Partenaires : Seuls les comptes Agents, Partenaires ou Administrateurs peuvent publier des équipements.");
+                    return;
+                  }
+                  setShowAddForm(true);
+                }}
+                className="flex items-center space-x-1.5 px-3.5 sm:px-4 py-2 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl shadow-xs transition cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Publier un Équipement</span>
+              </button>
+            )}
           </div>
         </div>
 
+        {/* Role Alert Modal */}
+        {roleAlertMessage && (
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#202020] rounded-2xl max-w-sm w-full p-6 border border-slate-200 dark:border-[#333] shadow-2xl text-center space-y-4">
+              <div className="w-12 h-12 bg-amber-500/10 text-amber-500 rounded-full flex items-center justify-center mx-auto text-xl">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Avertissement</h4>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{roleAlertMessage}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRoleAlertMessage(null)}
+                className="w-full py-2.5 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl transition cursor-pointer shadow-xs"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Toast Notification */}
         {toastMessage && (
-          <div className="bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 text-center flex items-center justify-center space-x-2">
+          <div className="bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 text-center flex items-center justify-center space-x-2 shrink-0">
             <CheckCircle className="w-4 h-4" />
             <span>{toastMessage}</span>
           </div>
         )}
 
-        {/* Add Form Drawer */}
+        {/* Formulaire d'Ajout Intégré */}
         {showAddForm && (
-          <div className="p-5 bg-slate-50 dark:bg-[#202020] border-b border-slate-200 dark:border-[#333] max-h-[70vh] overflow-y-auto space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-                <Package className="w-4 h-4 text-[#FF385C]" />
-                <span>Publier un nouveau meuble ou équipement à Bukavu</span>
+          <div className="bg-white dark:bg-[#1e1e1e] border-b border-slate-200 dark:border-[#333] p-6 space-y-4 shrink-0 max-h-[80vh] overflow-y-auto">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                Publier un nouvel équipement ou meuble
               </h3>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Visible par tous les clients et bailleurs
-              </span>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Partagez vos équipements et meubles avec la communauté de Bukavu
+              </p>
             </div>
 
             {formError && (
-              <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-xl text-xs text-red-600 dark:text-red-400 flex items-center space-x-2">
+              <div className="p-3 bg-red-500/10 text-red-600 dark:text-red-400 text-xs rounded-xl font-medium flex items-center space-x-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{formError}</span>
               </div>
             )}
 
-            <form onSubmit={handleCreateItem} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="sm:col-span-2">
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Nom / Titre du bien
-                  </label>
+            <form onSubmit={handleCreateItem} id="add-furniture-form" className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Titre de l'article *</label>
                   <input
                     type="text"
-                    required
-                    placeholder="Ex: Canapé d'angle en cuir, Table 6 chaises, Congélateur 200L..."
                     value={formTitle}
                     onChange={(e) => setFormTitle(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    placeholder="Ex: Canapé 3 places en cuir / Frigo Samsung"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    required
                   />
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Catégorie
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Catégorie *</label>
                   <select
                     value={formCategory}
                     onChange={(e) => setFormCategory(e.target.value as PartnerItemCategory)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                   >
-                    <option value="canape">🛋️ Canapé / Salon</option>
-                    <option value="table">🪑 Table / Bureau</option>
-                    <option value="armoire">🚪 Armoire / Penderie</option>
-                    <option value="etagere">📚 Étagère / Rangement</option>
-                    <option value="chaise">🪑 Chaises / Tabourets</option>
-                    <option value="congelateur">❄️ Congélateur / Frigo</option>
-                    <option value="lit">🛏️ Lit / Matelas</option>
-                    <option value="electromenager">🔌 Électroménager</option>
-                    <option value="autre">📦 Autre Équipement</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Prix ($ USD)
-                  </label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="Ex: 150"
-                    value={formPrice}
-                    onChange={(e) => setFormPrice(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    État du bien
-                  </label>
-                  <select
-                    value={formCondition}
-                    onChange={(e) => setFormCondition(e.target.value as any)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                  >
-                    <option value="neuf">✨ Neuf (Jamais utilisé)</option>
-                    <option value="tres_bon_etat">👍 Très bon état</option>
-                    <option value="bon_etat">👌 Bon état (Occasion)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Commune (Bukavu)
-                  </label>
-                  <select
-                    value={formCommune}
-                    onChange={(e) => setFormCommune(e.target.value as BukavuCommune)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                  >
-                    <option value="Ibanda">Ibanda</option>
-                    <option value="Kadutu">Kadutu</option>
-                    <option value="Bagira">Bagira</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Quartier (Officiel)
-                  </label>
-                  <select
-                    value={formNeighborhood}
-                    onChange={(e) => setFormNeighborhood(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                  >
-                    {(BUKAVU_COMMUNES_WITH_NEIGHBORHOODS[formCommune] || []).map((hood) => (
-                      <option key={hood} value={hood}>
-                        {hood}
+                    {categoriesConfig.filter(c => c.id !== 'tous').map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.icon} {cat.label}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Nom du Vendeur / Partenaire
-                  </label>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Prix ($ USD) *</label>
+                  <input
+                    type="number"
+                    value={formPrice}
+                    onChange={(e) => setFormPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="Ex: 150"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">État de l'article</label>
+                  <select
+                    value={formCondition}
+                    onChange={(e) => setFormCondition(e.target.value as any)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                  >
+                    <option value="neuf">Neuf</option>
+                    <option value="tres_bon_etat">Très bon état</option>
+                    <option value="bon_etat">Bon état</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Commune</label>
+                  <select
+                    value={formCommune}
+                    onChange={(e) => setFormCommune(e.target.value as BukavuCommune)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                  >
+                    {Object.keys(BUKAVU_COMMUNES_WITH_NEIGHBORHOODS).map((commune) => (
+                      <option key={commune} value={commune}>{commune}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Quartier / Avenue</label>
+                  <select
+                    value={formNeighborhood}
+                    onChange={(e) => setFormNeighborhood(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                  >
+                    {(BUKAVU_COMMUNES_WITH_NEIGHBORHOODS[formCommune] || []).map((hood) => (
+                      <option key={hood} value={hood}>{hood}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Nom du Vendeur / Partenaire</label>
                   <input
                     type="text"
                     value={formPartnerName}
                     onChange={(e) => setFormPartnerName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                   />
                 </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Téléphone / WhatsApp du Partenaire
-                  </label>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Téléphone / WhatsApp du partenaire</label>
                   <input
-                    type="tel"
-                    required
-                    placeholder="+243986760178"
+                    type="text"
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    placeholder="+243..."
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                  Description détaillée de l'article
-                </label>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Description détaillée de l'article</label>
                 <textarea
                   rows={2}
-                  placeholder="Décrivez les dimensions, matière, couleur, marque, et points forts..."
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                  placeholder="Décrivez les dimensions, état, couleur, marque, et points forts..."
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#282828] border border-slate-200 dark:border-[#383838] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                 />
               </div>
 
-              {/* Photos & AI Verification */}
+              {/* Upload Photos Section */}
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase">
-                    Photos réelles du meuble / équipement
-                  </label>
-                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center space-x-1">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>Contrôle IA Mobilier Actif</span>
-                  </span>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center space-x-1.5 px-3.5 py-2 bg-[#FF385C]/10 hover:bg-[#FF385C]/20 text-[#FF385C] text-xs font-bold rounded-xl cursor-pointer transition border border-[#FF385C]/30">
-                    <Camera className="w-4 h-4" />
-                    <span>Prendre une photo (Appareil photo)</span>
+                <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Photos réelles du meuble / équipement</label>
+                <div className="flex items-center space-x-3 flex-wrap gap-y-2">
+                  <label className="flex items-center space-x-1.5 px-3 py-2 bg-[#FF385C]/10 hover:bg-[#FF385C]/20 text-[#FF385C] text-xs font-bold rounded-xl cursor-pointer transition">
+                    <Camera className="w-3.5 h-3.5" />
+                    <span>{validatingImage ? 'Vérification IA...' : 'Prendre une photo (Appareil photo)'}</span>
                     <input type="file" accept="image/*" capture="environment" onChange={handleFileUpload} className="hidden" />
                   </label>
 
-                  <label className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-200 dark:bg-[#2c2c2c] hover:bg-slate-300 text-slate-800 dark:text-slate-200 text-xs font-semibold rounded-xl cursor-pointer transition">
-                    <Upload className="w-3.5 h-3.5" />
+                  <label className="flex items-center space-x-1.5 px-3 py-2 bg-slate-200 dark:bg-[#2a2a2a] hover:bg-slate-300 dark:hover:bg-[#333] text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl cursor-pointer transition">
+                    <ImageIcon className="w-3.5 h-3.5" />
                     <span>Importer depuis la galerie</span>
-                    <input type="file" multiple accept="image/*" onChange={handleFileUpload} className="hidden" />
+                    <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
                   </label>
-
-                  {validatingImage && (
-                    <span className="text-xs text-[#FF385C] flex items-center space-x-1.5 animate-pulse">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Vérification IA de la photo...</span>
-                    </span>
-                  )}
                 </div>
 
+                {/* Aperçu des photos */}
                 {formImages.length > 0 && (
-                  <div className="flex flex-wrap gap-2 pt-1">
+                  <div className="flex items-center space-x-2 pt-1 overflow-x-auto">
                     {formImages.map((img, idx) => (
-                      <div key={idx} className="relative group w-16 h-16 rounded-xl overflow-hidden border border-slate-300 dark:border-[#444]">
-                        <img src={img} alt="Preview" className="w-full h-full object-cover" />
+                      <div key={idx} className="relative w-14 h-14 rounded-xl overflow-hidden border border-slate-200 dark:border-[#333] shrink-0">
+                        <img src={img} alt="" className="w-full h-full object-cover" />
                         <button
                           type="button"
-                          onClick={() => setFormImages((prev) => prev.filter((_, i) => i !== idx))}
-                          className="absolute inset-0 bg-red-600/80 text-white opacity-0 group-hover:opacity-100 flex items-center justify-center transition cursor-pointer"
+                          onClick={() => setFormImages(formImages.filter((_, i) => i !== idx))}
+                          className="absolute top-1 right-1 p-0.5 bg-black/60 text-white rounded-full hover:bg-red-600 transition"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <X className="w-3 h-3" />
                         </button>
                       </div>
                     ))}
                   </div>
                 )}
-
-                {/* Certification Checkbox */}
-                <div className="pt-2">
-                  <label className="flex items-start space-x-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isCertifiedFurniture}
-                      onChange={(e) => setIsCertifiedFurniture(e.target.checked)}
-                      className="mt-0.5 rounded text-[#FF385C] focus:ring-[#FF385C]"
-                    />
-                    <span>
-                      Je certifie que cette annonce et ces photos correspondent exclusivement à du <strong>mobilier, de l'équipement ou de l'électroménager</strong> conforme.
-                    </span>
-                  </label>
-                </div>
               </div>
 
-              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-200 dark:border-[#333]">
+              {/* Case de certification */}
+              <div className="flex items-start space-x-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="certify-furniture"
+                  checked={isCertifiedFurniture}
+                  onChange={(e) => setIsCertifiedFurniture(e.target.checked)}
+                  className="mt-0.5 rounded text-[#FF385C] focus:ring-[#FF385C]"
+                />
+                <label htmlFor="certify-furniture" className="text-[11px] text-slate-600 dark:text-slate-300 leading-tight cursor-pointer">
+                  Je certifie que cette annonce et ces photos correspondent exclusivement à du mobilier, de l'équipement ou de l'électroménager conforme.
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="px-4 py-2 border border-slate-200 dark:border-[#333] text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+                  className="px-4 py-2 bg-slate-200 dark:bg-[#2a2a2a] hover:bg-slate-300 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -597,7 +570,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
                   disabled={submitting || validatingImage}
                   className="px-5 py-2 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
                 >
-                  {submitting ? 'Publication...' : 'Publier l’Équipement'}
+                  {submitting ? 'Publication en cours...' : "Publier l'annonce"}
                 </button>
               </div>
             </form>
@@ -605,7 +578,7 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
         )}
 
         {/* Search & Categories Bar */}
-        <div className="p-4 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-[#2a2a2a] space-y-3">
+        <div className="p-4 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-[#2a2a2a] space-y-3 shrink-0">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -619,7 +592,6 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
             </div>
           </div>
 
-          {/* Categories Pill List */}
           <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-none">
             {categoriesConfig.map((cat) => (
               <button
@@ -639,8 +611,8 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
           </div>
         </div>
 
-        {/* Items Grid */}
-        <div className="p-5 overflow-y-auto flex-1 max-h-[60vh]">
+        {/* Items Grid & Content Area */}
+        <div className="p-5 overflow-y-auto flex-1 min-h-[350px]">
           {loading ? (
             <div className="py-16 text-center space-y-3">
               <div className="w-8 h-8 border-3 border-[#FF385C] border-t-transparent rounded-full animate-spin mx-auto" />
@@ -649,206 +621,130 @@ export const PartnerFurnitureModal: React.FC<PartnerFurnitureModalProps> = ({
           ) : filteredItems.length === 0 ? (
             <div className="py-16 text-center space-y-3">
               <div className="text-4xl">🛋️</div>
-              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                Aucun équipement ne correspond à votre recherche
-              </h4>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Soyez le premier à publier une table, armoire, canapé ou congélateur dans cette catégorie !
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowAddForm(true)}
-                className="px-4 py-2 bg-[#FF385C] text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer"
-              >
-                Publier un article
-              </button>
+              <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">Aucun équipement trouvé</h4>
+              <p className="text-xs text-slate-500 max-w-xs mx-auto">Essayez de modifier vos critères de recherche ou publiez le premier article de cette catégorie.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredItems.map((item) => {
-                const conditionBadge =
-                  item.condition === 'neuf'
-                    ? { text: 'Neuf', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' }
-                    : item.condition === 'tres_bon_etat'
-                    ? { text: 'Très bon état', color: 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300' }
-                    : { text: 'Bon état', color: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300' };
-
-                return (
-                  <div
-                    key={item.id}
-                    className="bg-white dark:bg-[#202020] border border-slate-200 dark:border-[#2e2e2e] rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition flex flex-col justify-between"
-                  >
-                    <div>
-                      {/* Image container */}
-                      <div className="relative h-44 w-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                        <img
-                          src={item.images[0] || 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&q=80'}
-                          alt={item.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute top-2.5 left-2.5 flex items-center space-x-1">
-                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase shadow-xs ${conditionBadge.color}`}>
-                            {conditionBadge.text}
-                          </span>
-                        </div>
-                        <div className="absolute top-2.5 right-2.5">
-                          <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-900/80 text-white backdrop-blur-xs">
-                            {item.price}$
-                          </span>
-                        </div>
-
-                        {/* Bouton de suppression si l'utilisateur est le propriétaire */}
-                        {user && (user.uid === item.partnerId || user.role === 'admin') && (
-                          <button
-                            type="button"
-                            onClick={(e) => handleDelete(e, item.id)}
-                            className="absolute bottom-2.5 right-2.5 p-2 bg-red-600/90 hover:bg-red-700 text-white rounded-xl shadow-md transition cursor-pointer"
-                            title="Supprimer l'article"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Content details */}
-                      <div className="p-4 space-y-2">
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
-                          <span className="flex items-center space-x-1 font-semibold text-[#FF385C]">
-                            <MapPin className="w-3.5 h-3.5" />
-                            <span>{item.neighborhood}, {item.commune}</span>
-                          </span>
-                          <span>Par {item.partnerName}</span>
-                        </div>
-
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white line-clamp-1">
-                          {item.title}
-                        </h4>
-
-                        <p className="text-xs text-slate-600 dark:text-slate-300 line-clamp-2">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Footer Actions (WhatsApp & NyumbaLink Message) */}
-                    <div className="p-4 pt-0 grid grid-cols-2 gap-2 mt-2">
-                      <a
-                        href={`https://wa.me/${item.partnerPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
-                          `Bonjour ${item.partnerName}, je suis intéressé par votre article "${item.title}" (${item.price}$) vu sur NyumbaLink.`
-                        )}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs"
-                      >
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>WhatsApp</span>
-                      </a>
-
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              {filteredItems.map((item) => (
+                <div key={item.id} className="bg-white dark:bg-[#202020] rounded-2xl border border-slate-200 dark:border-[#333] overflow-hidden shadow-xs hover:shadow-md transition flex flex-col">
+                  <div className="relative h-40 bg-slate-100 dark:bg-[#2c2c2c]">
+                    <img src={item.images[0]} alt={item.title} className="w-full h-full object-cover" />
+                    <span className="absolute top-2.5 left-2.5 px-2.5 py-1 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold rounded-lg">
+                      {item.price} $
+                    </span>
+                    {(user?.role === 'admin' || user?.uid === item.partnerId) && (
                       <button
                         type="button"
-                        onClick={() => {
-                          if (!user && onRequireAuth) {
-                            onRequireAuth();
-                            return;
-                          }
-                          setMessagingItem(item);
-                        }}
-                        className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl transition shadow-xs cursor-pointer"
+                        onClick={(e) => handleDelete(e, item.id)}
+                        className="absolute top-2.5 right-2.5 p-1.5 bg-red-600/90 text-white rounded-lg hover:bg-red-700 transition cursor-pointer"
+                        title="Supprimer"
                       >
-                        <Send className="w-3.5 h-3.5" />
-                        <span>Message</span>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                    </div>
+                    )}
                   </div>
-                );
-              })}
+                  <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
+                    <div className="space-y-1">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-1">{item.title}</h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center space-x-1">
+                        <MapPin className="w-3 h-3 text-[#FF385C] shrink-0" />
+                        <span className="truncate">{item.neighborhood}, {item.commune}</span>
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMessagingItem(item)}
+                      className="w-full py-2 bg-[#FF385C]/10 hover:bg-[#FF385C]/20 text-[#FF385C] text-xs font-bold rounded-xl transition flex items-center justify-center space-x-1.5 cursor-pointer"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>Contacter le Partenaire</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
+
+          {/* Bouton Annuler ajouté à la fin, après les équipements publiés */}
+          <div className="mt-8 pt-4 border-t border-slate-100 dark:border-[#2a2a2a] flex justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 bg-slate-200 dark:bg-[#2a2a2a] hover:bg-slate-300 dark:hover:bg-[#333] text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl transition cursor-pointer"
+            >
+              Annuler
+            </button>
+          </div>
         </div>
 
-        {/* Modal Interne d'Envoi de Message NyumbaLink */}
+        {/* Modal de contact direct partenaire */}
         {messagingItem && (
-          <div className="absolute inset-0 z-60 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-[#202020] rounded-3xl p-6 w-full max-w-md border border-slate-200 dark:border-[#333] shadow-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#2a2a2a] pb-3">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-xl bg-[#FF385C]/10 flex items-center justify-center text-[#FF385C]">
-                    <MessageCircle className="w-4 h-4" />
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">
-                    Contacter {messagingItem.partnerName}
-                  </h3>
-                </div>
+          <div className="absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-[#202020] rounded-3xl max-w-md w-full p-6 border border-slate-200 dark:border-[#333] shadow-2xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">Contacter le partenaire</h4>
                 <button
                   type="button"
                   onClick={() => setMessagingItem(null)}
-                  className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg cursor-pointer"
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
+              </div>
+
+              <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center space-x-3">
+                <img src={messagingItem.images[0]} alt="" className="w-12 h-12 rounded-xl object-cover" />
+                <div>
+                  <h5 className="text-xs font-bold text-slate-900 dark:text-white">{messagingItem.title}</h5>
+                  <p className="text-[11px] text-[#FF385C] font-semibold">{messagingItem.price} $ • {messagingItem.partnerName}</p>
+                </div>
               </div>
 
               <form onSubmit={handleSendMessage} className="space-y-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Votre Nom complet
-                  </label>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Votre Nom *</label>
                   <input
                     type="text"
-                    required
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#2c2c2c] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white mt-1"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Votre Téléphone / WhatsApp
-                  </label>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Votre Téléphone *</label>
                   <input
-                    type="tel"
-                    required
+                    type="text"
                     value={senderPhone}
                     onChange={(e) => setSenderPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#2c2c2c] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white mt-1"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                    Votre Message
-                  </label>
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">Votre Message</label>
                   <textarea
                     rows={3}
-                    required
                     value={senderMessage}
                     onChange={(e) => setSenderMessage(e.target.value)}
-                    placeholder={`Bonjour, je suis intéressé par votre article "${messagingItem.title}" (${messagingItem.price}$). Est-il toujours disponible ?`}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#151515] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                    placeholder="Je suis intéressé par cet article..."
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#2c2c2c] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white mt-1"
                   />
                 </div>
-
-                <div className="flex justify-end space-x-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setMessagingItem(null)}
-                    className="px-4 py-2 border border-slate-200 dark:border-[#333] text-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={sendingMessage}
-                    className="px-5 py-2 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl shadow-xs transition disabled:opacity-50 cursor-pointer"
-                  >
-                    {sendingMessage ? 'Envoi...' : 'Envoyer le message'}
-                  </button>
-                </div>
+                <button
+                  type="submit"
+                  disabled={sendingMessage}
+                  className="w-full py-2.5 bg-[#FF385C] hover:bg-[#e00b41] text-white text-xs font-bold rounded-xl transition flex items-center justify-center space-x-2 cursor-pointer shadow-xs"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{sendingMessage ? 'Envoi en cours...' : 'Envoyer le message'}</span>
+                </button>
               </form>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

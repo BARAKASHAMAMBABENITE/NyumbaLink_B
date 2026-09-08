@@ -60,8 +60,13 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
 
   const loadData = () => {
-    setInquiries(getUserInquiries(user || null));
-    setContractAlerts(getContractNotifications(user || null));
+    setInquiries(getUserInquiries(user || null) || []);
+    const alerts = getContractNotifications(user || null);
+    setContractAlerts({
+      expired: alerts?.expired || [],
+      expiringSoon: alerts?.expiringSoon || [],
+      totalAlerts: alerts?.totalAlerts || 0
+    });
   };
 
   useEffect(() => {
@@ -72,10 +77,10 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
 
   if (!isOpen) return null;
 
-  const unreadMessagesCount = inquiries.filter((i) => !i.isRead).length;
+  const unreadMessagesCount = (inquiries || []).filter((i) => !i.isRead).length;
   const totalContractAlerts = contractAlerts.totalAlerts;
 
-  const filteredInquiries = inquiries.filter((item) => {
+  const filteredInquiries = (inquiries || []).filter((item) => {
     if (filterTab === 'unread') return !item.isRead;
     if (filterTab === 'replied') return Boolean(item.agentReply);
     return true;
@@ -98,12 +103,6 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
     loadData();
     setReplyingToId(null);
     setReplyText('');
-  };
-
-  const handleCopyPhone = (id: string, phone: string) => {
-    navigator.clipboard.writeText(phone);
-    setCopiedPhoneId(id);
-    setTimeout(() => setCopiedPhoneId(null), 2000);
   };
 
   const isClientView = user?.role === 'client';
@@ -177,6 +176,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
             {/* Filter Tabs */}
             <div className="flex items-center space-x-2 pb-2.5 border-b border-gray-100 dark:border-white/10">
               <button
+                type="button"
                 onClick={() => setFilterTab('all')}
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
                   filterTab === 'all'
@@ -184,9 +184,10 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                     : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                Tous ({inquiries.length})
+                Tous ({(inquiries || []).length})
               </button>
               <button
+                type="button"
                 onClick={() => setFilterTab('unread')}
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
                   filterTab === 'unread'
@@ -194,9 +195,10 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                     : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                Non lus ({inquiries.filter((i) => !i.isRead).length})
+                Non lus ({(inquiries || []).filter((i) => !i.isRead).length})
               </button>
               <button
+                type="button"
                 onClick={() => setFilterTab('replied')}
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
                   filterTab === 'replied'
@@ -204,7 +206,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                     : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                Avec réponses ({inquiries.filter((i) => Boolean(i.agentReply)).length})
+                Avec réponses ({(inquiries || []).filter((i) => Boolean(i.agentReply)).length})
               </button>
             </div>
 
@@ -233,7 +235,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                     item.propertyId === 'b2b-partner-request' ||
                     item.propertyTitle.toLowerCase().includes('partenaire');
 
-                  let digits = item.senderPhone.replace(/\D/g, '');
+                  let digits = (item.senderPhone || '').replace(/\D/g, '');
                   if (digits.startsWith('0')) {
                     digits = '243' + digits.substring(1);
                   } else if (!digits.startsWith('243') && digits.length === 9) {
@@ -241,10 +243,6 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                   }
                   const cleanDigits = digits || '243986760178';
                   const agentDigits = (item.propertyOwnerPhone || '243986760178').replace(/\D/g, '');
-
-                  const gmailUrl = item.senderEmail
-                    ? `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(item.senderEmail)}&su=${encodeURIComponent(`NyumbaLink - Concernant : ${item.propertyTitle}`)}`
-                    : null;
 
                   return (
                     <div
@@ -341,12 +339,14 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                           />
                           <div className="flex items-center justify-end space-x-2">
                             <button
+                              type="button"
                               onClick={() => setReplyingToId(null)}
                               className="px-3 py-1 text-xs text-gray-500 hover:text-gray-900 dark:hover:text-white font-bold cursor-pointer"
                             >
                               Annuler
                             </button>
                             <button
+                              type="button"
                               onClick={() => handleSendReply(item.id)}
                               className="bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center space-x-1 cursor-pointer shadow-xs"
                             >
@@ -377,6 +377,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
 
                           {!isClientView && replyingToId !== item.id && (
                             <button
+                              type="button"
                               onClick={() => {
                                 setReplyingToId(item.id);
                                 setReplyText(
@@ -394,6 +395,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                         <div className="flex items-center space-x-1">
                           {!item.isRead && (
                             <button
+                              type="button"
                               onClick={() => handleMarkAsRead(item.id)}
                               className="text-xs font-bold text-[#FF385C] hover:bg-[#FF385C]/10 p-1.5 rounded-xl flex items-center space-x-1 transition cursor-pointer"
                               title="Marquer comme lu"
@@ -404,6 +406,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                           )}
 
                           <button
+                            type="button"
                             onClick={() => handleDelete(item.id)}
                             className="text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-1.5 rounded-xl flex items-center space-x-1 transition cursor-pointer"
                             title="Supprimer"
@@ -436,9 +439,9 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
             ) : (
               <div className="space-y-3">
                 {/* 1. Expired contracts */}
-                {contractAlerts.expired.map((alert, idx) => {
+                {(contractAlerts.expired || []).map((alert, idx) => {
                   const targetPhone = alert.role === 'tenant' ? alert.contract.landlordPhone : alert.contract.tenantPhone;
-                  const cleanPhone = targetPhone.replace(/[^0-9]/g, '');
+                  const cleanPhone = (targetPhone || '').replace(/[^0-9]/g, '');
 
                   return (
                     <div
@@ -499,9 +502,9 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                 })}
 
                 {/* 2. Expiring soon contracts */}
-                {contractAlerts.expiringSoon.map((alert, idx) => {
+                {(contractAlerts.expiringSoon || []).map((alert, idx) => {
                   const targetPhone = alert.role === 'tenant' ? alert.contract.landlordPhone : alert.contract.tenantPhone;
-                  const cleanPhone = targetPhone.replace(/[^0-9]/g, '');
+                  const cleanPhone = (targetPhone || '').replace(/[^0-9]/g, '');
                   const days = getDaysRemaining(alert.contract.endDate);
 
                   return (

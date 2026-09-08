@@ -1,1346 +1,456 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   FileText,
-  Calendar,
-  Clock,
-  CheckCircle2,
-  MessageCircle,
   PlusCircle,
-  RefreshCw,
   Trash2,
-  Printer,
-  ChevronRight,
-  ShieldCheck,
-  Building2,
-  DollarSign,
-  User,
-  ExternalLink,
-  Edit3,
-  Heart,
   Download,
   Check,
-  Loader2
+  Building2,
+  Clock,
+  RefreshCw,
+  MessageCircle,
+  Calendar
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { BrandLogo } from '../components/BrandLogo';
 import { UserProfile, Property } from '../types';
 import {
   RentalContract,
-  ContractStatus,
   getUserContracts,
   createContract,
-  confirmContract,
-  requestRenewal,
-  acceptRenewal,
-  rejectRenewal,
-  terminateContract,
   deleteContract,
-  getContractStatusDetails,
   getDaysRemaining
 } from '../services/contractService';
-import { useLanguage } from '../context/LanguageContext';
 
 interface ContractsViewProps {
   user: UserProfile | null;
   properties: Property[];
-  favoriteIds?: string[];
-  onSelectProperty?: (property: Property) => void;
-  openAuthModal?: () => void;
 }
 
-export const ContractsView: React.FC<ContractsViewProps> = ({
-  user,
-  properties,
-  favoriteIds = [],
-  onSelectProperty,
-  openAuthModal
-}) => {
-  const { language } = useLanguage();
-  const [contracts, setContracts] = useState<RentalContract[]>(() => getUserContracts(user));
-  const [activeFilter, setActiveFilter] = useState<'tous' | 'actifs' | 'proches' | 'termines'>('tous');
+type FilterTab = 'all' | 'active' | 'expiring' | 'expired';
+
+export const ContractsView: React.FC<ContractsViewProps> = ({ user, properties = [] }) => {
+  const [contracts, setContracts] = useState<RentalContract[]>(() => {
+    try {
+      const all = getUserContracts(user) || [];
+      if (!user) return [];
+      const safeProperties = properties || [];
+      if (user.role === 'landlord' || user.role === 'agent') {
+        const agentPropIds = safeProperties.filter(p => p.ownerId === user.uid).map(p => p.id);
+        return all.filter(c => agentPropIds.includes(c.propertyId) || c.landlordId === user.uid);
+      }
+      return all.filter(c => c.tenantId === user.uid);
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
+  const [newContractModalOpen, setNewContractModalOpen] = useState(false);
+  const [selectedContractForSheet, setSelectedContractForSheet] = useState<RentalContract | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  const safeProperties = properties || [];
+  const defaultProp = safeProperties[0];
+  const [selectedPropertyId, setSelectedPropertyId] = useState(defaultProp?.id || '');
+  const [formRentUSD, setFormRentUSD] = useState<number | ''>(defaultProp?.price || 220);
+  const [formTenantName, setFormTenantName] = useState(user?.fullname || '');
+  const [formTenantPhone, setFormTenantPhone] = useState(user?.phone || '+243');
+  const [formTenantAddress, setFormTenantAddress] = useState('Bukavu, RDC');
+  
+  // Nouveaux états pour la gestion dynamique des dates de bail (fixé au 07/09/2026 par défaut)
+  const [formDurationMonths, setFormDurationMonths] = useState<number>(12); // Par défaut 1 an (12 mois)
+  const [formStartDate, setFormStartDate] = useState<string>('2026-09-07');
+  const [formEndDate, setFormEndDate] = useState<string>('2027-09-07');
 
   useEffect(() => {
-    setContracts(getUserContracts(user));
-  }, [user]);
+    if (selectedPropertyId) {
+      const prop = safeProperties.find(p => p.id === selectedPropertyId);
+      if (prop) {
+        setFormRentUSD(prop.price);
+      }
+    }
+  }, [selectedPropertyId, safeProperties]);
 
-  // Modal states
-  const [newContractModalOpen, setNewContractModalOpen] = useState(false);
-  const [renewModalContract, setRenewModalContract] = useState<RentalContract | null>(null);
-  const [certificateModalContract, setCertificateModalContract] = useState<RentalContract | null>(null);
-  const [isEditingCertificate, setIsEditingCertificate] = useState(false);
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  // Fonction pour recalculer automatiquement la date de fin en fonction de la date de début et du délai en mois choisi
+  const calculateEndDate = (startDateStr: string, months: number) => {
+    try {
+      const start = new Date(startDateStr);
+      if (!isNaN(start.getTime())) {
+        start.setMonth(start.getMonth() + Number(months));
+        return start.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // Ignorer l'erreur
+    }
+    return startDateStr;
+  };
 
-  // Renewal form
-  const [renewEndDate, setRenewEndDate] = useState('');
-  const [renewRentAmount, setRenewRentAmount] = useState<number | ''>('');
+  const handleStartDateChange = (newStart: string) => {
+    setFormStartDate(newStart);
+    setFormEndDate(calculateEndDate(newStart, formDurationMonths));
+  };
 
-  // New contract form state
-  const [propertySelectionMode, setPropertySelectionMode] = useState<'catalog' | 'custom'>('catalog');
-  const [customPropertyTitle, setCustomPropertyTitle] = useState('');
-  const [customPropertyAddress, setCustomPropertyAddress] = useState('');
-  const [customPropertyCommune, setCustomPropertyCommune] = useState('Ibanda');
-  const [customPropertyNeighborhood, setCustomPropertyNeighborhood] = useState('Nguba');
-  const [customPropertyCategory, setCustomPropertyCategory] = useState('maison');
-
-  const [selectedPropertyId, setSelectedPropertyId] = useState(properties[0]?.id || '');
-  const [formTenantName, setFormTenantName] = useState(user?.fullname || '');
-  const [formTenantEmail, setFormTenantEmail] = useState(user?.email || '');
-  const [formTenantPhone, setFormTenantPhone] = useState(user?.phone || '+243 ');
-  const [formLandlordName, setFormLandlordName] = useState('Bénite BARAKA SHAMAMBA (Agent Agréé)');
-  const [formLandlordEmail, setFormLandlordEmail] = useState('benite.baraka@nyumbalink.cd');
-  const [formLandlordPhone, setFormLandlordPhone] = useState('+243 986 760 178');
-  const [formRentUSD, setFormRentUSD] = useState<number | ''>(properties[0]?.price || 500);
-  const [formDepositUSD, setFormDepositUSD] = useState<number | ''>((properties[0]?.price || 500) * 2);
-  const [formStartDate, setFormStartDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [formEndDate, setFormEndDate] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 6);
-    return d.toISOString().split('T')[0];
-  });
-  const [formPaymentFreq, setFormPaymentFreq] = useState<'mensuel' | 'trimestriel' | 'semestriel' | 'annuel'>('mensuel');
-  const [formNotes, setFormNotes] = useState('Bail résidentiel standard conforme aux usages de la ville de Bukavu avec préavis de 5 jours.');
-
-  // Certificate Editable State
-  const [certData, setCertData] = useState<{
-    propertyTitle: string;
-    propertyAddress: string;
-    propertyCommune: string;
-    propertyNeighborhood: string;
-    tenantName: string;
-    tenantPhone: string;
-    tenantEmail: string;
-    landlordName: string;
-    landlordPhone: string;
-    landlordEmail: string;
-    rentAmountUSD: number;
-    depositAmountUSD: number;
-    paymentFrequency: string;
-    startDate: string;
-    endDate: string;
-    specialClauses: string;
-  } | null>(null);
+  const handleDurationChange = (months: number) => {
+    setFormDurationMonths(months);
+    setFormEndDate(calculateEndDate(formStartDate, months));
+  };
 
   const refreshContracts = () => {
-    setContracts(getUserContracts(user));
-  };
-
-  const handleOpenCertificate = (contract: RentalContract) => {
-    setCertData({
-      propertyTitle: contract.propertyTitle,
-      propertyAddress: contract.propertyAddress,
-      propertyCommune: contract.propertyCommune,
-      propertyNeighborhood: contract.propertyNeighborhood,
-      tenantName: contract.tenantName,
-      tenantPhone: contract.tenantPhone,
-      tenantEmail: contract.tenantEmail,
-      landlordName: contract.landlordName,
-      landlordPhone: contract.landlordPhone,
-      landlordEmail: contract.landlordEmail,
-      rentAmountUSD: contract.rentAmountUSD,
-      depositAmountUSD: contract.depositAmountUSD || contract.rentAmountUSD * 2,
-      paymentFrequency: contract.paymentFrequency,
-      startDate: contract.startDate,
-      endDate: contract.endDate,
-      specialClauses: contract.notes || 'Paiement mensuel au plus tard le 5 de chaque mois. Préavis réciproque de 5 jours.'
-    });
-    setIsEditingCertificate(false);
-    setCertificateModalContract(contract);
-  };
-
-  const handlePropertySelectionChange = (propId: string) => {
-    setSelectedPropertyId(propId);
-    const prop = properties.find((p) => p.id === propId);
-    if (prop) {
-      setFormLandlordName(prop.ownerName || 'Bénite BARAKA SHAMAMBA');
-      setFormLandlordEmail(prop.ownerEmail || 'benite.baraka@nyumbalink.cd');
-      setFormLandlordPhone(prop.ownerPhone || '+243 986 760 178');
-      setFormRentUSD(prop.price);
-      setFormDepositUSD(prop.price * 2);
+    try {
+      const all = getUserContracts(user) || [];
+      const currentProperties = properties || [];
+      if (!user) {
+        setContracts(all);
+        return;
+      }
+      if (user.role === 'landlord' || user.role === 'agent') {
+        const agentPropIds = currentProperties.filter(p => p.ownerId === user.uid).map(p => p.id);
+        setContracts(all.filter(c => agentPropIds.includes(c.propertyId) || c.landlordId === user.uid));
+      } else {
+        setContracts(all.filter(c => c.tenantId === user.uid));
+      }
+    } catch (e) {
+      setContracts([]);
     }
   };
-
-  const handleInitiateForAdmiredProperty = (prop: Property) => {
-    setPropertySelectionMode('catalog');
-    setSelectedPropertyId(prop.id);
-    setFormLandlordName(prop.ownerName || 'Bénite BARAKA SHAMAMBA');
-    setFormLandlordEmail(prop.ownerEmail || 'benite.baraka@nyumbalink.cd');
-    setFormLandlordPhone(prop.ownerPhone || '+243 986 760 178');
-    setFormRentUSD(prop.price);
-    setFormDepositUSD(prop.price * 2);
-    setNewContractModalOpen(true);
-  };
-
-  // Filter calculations
-  const totalCount = contracts.length;
-  const activeCount = contracts.filter((c) => !getContractStatusDetails(c).isExpired).length;
-  const expiringSoonCount = contracts.filter((c) => getContractStatusDetails(c).isExpiringSoon).length;
-  const expiredCount = contracts.filter((c) => getContractStatusDetails(c).isExpired).length;
-
-  const filteredContracts = contracts.filter((c) => {
-    const details = getContractStatusDetails(c);
-    if (activeFilter === 'actifs') return !details.isExpired;
-    if (activeFilter === 'proches') return details.isExpiringSoon;
-    if (activeFilter === 'termines') return details.isExpired;
-    return true;
-  });
-
-  const handleCreateContractSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const isCustom = propertySelectionMode === 'custom';
-    const prop = properties.find((p) => p.id === selectedPropertyId);
-
-    const title = isCustom ? customPropertyTitle : prop?.title || 'Bien à Bukavu';
-    const address = isCustom ? customPropertyAddress : prop?.address || `${prop?.neighborhood}, Bukavu`;
-    const commune = isCustom ? customPropertyCommune : prop?.commune || 'Ibanda';
-    const neighborhood = isCustom ? customPropertyNeighborhood : prop?.neighborhood || 'Nguba';
-    const category = isCustom ? customPropertyCategory : prop?.category || 'maison';
-    const image = isCustom ? '' : prop?.images[0] || '';
-
-    const isClientRole = user?.role === 'client';
-    const initialStatus: ContractStatus = isClientRole ? 'en_attente_confirmation' : 'actif';
-
-    createContract({
-      propertyId: prop?.id || `custom-prop-${Date.now()}`,
-      propertyTitle: title,
-      propertyAddress: address,
-      propertyCommune: commune,
-      propertyNeighborhood: neighborhood,
-      propertyImage: image,
-      propertyCategory: category,
-      tenantId: user?.uid || `tenant-${Date.now()}`,
-      tenantName: formTenantName || user?.fullname || 'Locataire',
-      tenantEmail: formTenantEmail || user?.email || '',
-      tenantPhone: formTenantPhone || user?.phone || '+243 986 760 178',
-      landlordId: prop?.ownerId || 'agent-1',
-      landlordName: formLandlordName,
-      landlordEmail: formLandlordEmail,
-      landlordPhone: formLandlordPhone,
-      rentAmountUSD: Number(formRentUSD) || 500,
-      depositAmountUSD: Number(formDepositUSD) || (Number(formRentUSD) || 500) * 2,
-      paymentFrequency: formPaymentFreq,
-      startDate: formStartDate,
-      endDate: formEndDate,
-      status: initialStatus,
-      createdByRole: user?.role || 'client',
-      notes: formNotes,
-      confirmedAt: !isClientRole ? new Date().toISOString() : undefined,
-      confirmedBy: !isClientRole ? (user?.fullname || 'Bailleur') : undefined
-    });
-
-    setNewContractModalOpen(false);
-    refreshContracts();
-  };
-
-  const handleConfirmContract = (contractId: string) => {
-    const confirmerName = user?.fullname || (user?.role === 'agent' ? 'Agent Agréé' : 'Bailleur');
-    confirmContract(contractId, confirmerName);
-    refreshContracts();
-  };
-
-  const handleOpenRenewModal = (contract: RentalContract) => {
-    setRenewModalContract(contract);
-    const d = new Date(contract.endDate);
-    d.setMonth(d.getMonth() + 6);
-    setRenewEndDate(d.toISOString().split('T')[0]);
-    setRenewRentAmount(contract.rentAmountUSD);
-  };
-
-  const handleRenewSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!renewModalContract || !renewEndDate) return;
-    const requesterName = user?.fullname || 'Demandeur';
-    requestRenewal(renewModalContract.id, renewEndDate, renewRentAmount ? Number(renewRentAmount) : undefined, requesterName);
-    setRenewModalContract(null);
-    refreshContracts();
-  };
-
-  const handleAcceptRenewal = (contractId: string) => {
-    const confirmerName = user?.fullname || 'Bailleur';
-    acceptRenewal(contractId, confirmerName);
-    refreshContracts();
-  };
-
-  const handleRejectRenewal = (contractId: string) => {
-    if (window.confirm('Refuser cette demande de renouvellement ?')) {
-      rejectRenewal(contractId);
-      refreshContracts();
-    }
-  };
-
-  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const handleDelete = (contractId: string) => {
-    deleteContract(contractId);
-    setDeleteConfirmId(null);
-    refreshContracts();
-    showToast('Le contrat de location a été supprimé avec succès.');
-  };
-
-  const handleDownloadPdf = async () => {
-    const element = document.getElementById('printable-lease-certificate');
-    if (!element) return;
+  const handleCreateContractSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const currentProperties = properties || [];
+    const prop = currentProperties.find((p) => p.id === selectedPropertyId);
 
     try {
-      setIsGeneratingPdf(true);
-      const canvas = await html2canvas(element, {
-        scale: 2.5,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff'
+      createContract({
+        propertyId: prop?.id || `prop-${Date.now()}`,
+        propertyTitle: prop?.title || 'Bien Immobilier Bukavu',
+        propertyNeighborhood: prop?.neighborhood || 'Ibanda',
+        propertyCommune: prop?.commune || 'Ibanda',
+        tenantId: user?.uid || 'client-1',
+        tenantName: formTenantName,
+        tenantPhone: `${formTenantAddress} - Tél: ${formTenantPhone}`,
+        landlordId: prop?.ownerId || 'landlord-1',
+        landlordName: prop?.ownerName || 'Propriétaire NyumbaLink',
+        landlordPhone: prop?.ownerPhone || '+243998123456',
+        startDate: formStartDate,
+        endDate: formEndDate,
+        monthlyRent: Number(formRentUSD) || 220,
+        depositAmount: (Number(formRentUSD) || 220) * 2,
+        status: 'pending'
       });
 
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const pageWidth = 210;
-      const margin = 12;
-      const contentWidth = pageWidth - margin * 2;
-      const contentHeight = (canvas.height * contentWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, contentHeight);
-      
-      const cleanTitle = (certData?.propertyTitle || 'Bukavu').replace(/[^a-zA-Z0-9]/g, '_');
-      const refId = certificateModalContract?.id ? certificateModalContract.id.slice(-6) : Date.now().toString().slice(-6);
-      pdf.save(`Contrat_Bail_NyumbaLink_${cleanTitle}_${refId}.pdf`);
-    } catch (error) {
-      console.error('Error generating PDF document:', error);
-      window.print();
-    } finally {
-      setIsGeneratingPdf(false);
+      setNewContractModalOpen(false);
+      refreshContracts();
+      showToast('Contrat créé avec succès !');
+    } catch (err) {
+      showToast('Erreur lors de la création du contrat.');
     }
   };
 
-  const admiredProperties = properties.filter((p) => favoriteIds.includes(p.id));
-  const suggestedProperties = admiredProperties.length > 0 ? admiredProperties : properties.slice(0, 3);
+  const handleDownloadPdf = async () => {
+    if (!sheetRef.current) {
+      showToast('Erreur : Document introuvable.');
+      return;
+    }
+    try {
+      const canvas = await html2canvas(sheetRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`Fiche_Bail_NyumbaLink_${selectedContractForSheet?.id || 'officiel'}.pdf`);
+      showToast('PDF téléchargé avec succès.');
+    } catch (err) {
+      console.error('Erreur PDF:', err);
+      showToast('Erreur lors du téléchargement du PDF.');
+    }
+  };
+
+  const safeContracts = contracts || [];
+  const totalCount = safeContracts.length;
+  const activeCount = safeContracts.filter((c) => c.status === 'active' || (getDaysRemaining ? getDaysRemaining(c.endDate) > 30 : true)).length;
+  const expiringCount = safeContracts.filter((c) => {
+    const days = getDaysRemaining ? getDaysRemaining(c.endDate) : 60;
+    return days >= 0 && days <= 30;
+  }).length;
+  const expiredCount = safeContracts.filter((c) => {
+    const days = getDaysRemaining ? getDaysRemaining(c.endDate) : 60;
+    return c.status === 'expired' || days < 0;
+  }).length;
+
+  const filteredContracts = safeContracts.filter((c) => {
+    const days = getDaysRemaining ? getDaysRemaining(c.endDate) : 60;
+    if (activeTab === 'active') return c.status === 'active' || days > 30;
+    if (activeTab === 'expiring') return days >= 0 && days <= 30;
+    if (activeTab === 'expired') return c.status === 'expired' || days < 0;
+    return true;
+  });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-16 font-sans text-gray-900 dark:text-gray-100 antialiased">
-      {/* Toast Notification */}
+    <div className="max-w-7xl mx-auto space-y-6 pb-16 font-sans text-gray-900">
       {toastMessage && (
-        <div className="fixed top-20 right-6 z-50 p-4 bg-gray-900 text-white text-xs font-bold rounded-2xl shadow-xl border border-white/10 flex items-center space-x-2 animate-in slide-in-from-top-2">
+        <div className="fixed top-20 right-6 z-50 p-4 bg-gray-900 text-white text-xs font-bold rounded-2xl shadow-xl flex items-center space-x-2">
           <Check className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 dark:border-white/10 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-200 pb-5">
         <div>
-          <div className="flex items-center space-x-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#FF385C]/10 text-[#FF385C] flex items-center justify-center font-bold">
-              <FileText className="w-5 h-5" />
-            </div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Contrats de Location
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Gestion sécurisée, formalisation de bail et attestations.
+          <h1 className="text-2xl font-bold tracking-tight">Contrats de Location</h1>
+          <p className="text-xs text-gray-500 mt-1">
+            Gestion sécurisée et formalisation des baux.
           </p>
         </div>
-
         <button
-          type="button"
-          onClick={() => {
-            if (properties.length > 0) {
-              handlePropertySelectionChange(properties[0].id);
-            }
-            setNewContractModalOpen(true);
-          }}
-          className="flex items-center space-x-2 px-5 py-2.5 bg-[#FF385C] hover:bg-[#E00B41] text-white rounded-2xl text-xs font-bold transition shadow-xs hover:shadow-md cursor-pointer shrink-0"
+          onClick={() => setNewContractModalOpen(true)}
+          className="flex items-center space-x-2 px-5 py-2.5 bg-[#FF385C] hover:bg-[#E00B41] text-white rounded-2xl text-xs font-bold transition shadow-md cursor-pointer shrink-0"
         >
           <PlusCircle className="w-4 h-4" />
           <span>Nouveau Contrat de Bail</span>
         </button>
       </div>
 
-      {/* 4 HIGHLY INTERACTIVE STATS FILTER CARDS - ALL USING HARMONIOUS APP PRIMARY COLOR #FF385C */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        {/* 1. Total Contrats */}
-        <button
-          type="button"
-          onClick={() => setActiveFilter('tous')}
-          className={`p-4 sm:p-5 rounded-2xl sm:rounded-3xl text-left transition-all duration-150 cursor-pointer border ${
-            activeFilter === 'tous'
-              ? 'bg-[#FF385C] text-white border-[#FF385C] shadow-md ring-2 ring-[#FF385C]/30 scale-[1.01]'
-              : 'bg-white dark:bg-[#1c1c1c] text-gray-900 dark:text-white border-gray-200 dark:border-white/10 hover:border-[#FF385C]/50 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${activeFilter === 'tous' ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'}`}>
-              Total Contrats
-            </span>
-            <FileText className={`w-4 h-4 ${activeFilter === 'tous' ? 'text-white' : 'text-[#FF385C]'}`} />
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-2">
-            {totalCount}
-          </p>
-        </button>
-
-        {/* 2. Baux Actifs */}
-        <button
-          type="button"
-          onClick={() => setActiveFilter('actifs')}
-          className={`p-4 sm:p-5 rounded-2xl sm:rounded-3xl text-left transition-all duration-150 cursor-pointer border ${
-            activeFilter === 'actifs'
-              ? 'bg-[#FF385C] text-white border-[#FF385C] shadow-md ring-2 ring-[#FF385C]/30 scale-[1.01]'
-              : 'bg-white dark:bg-[#1c1c1c] text-gray-900 dark:text-white border-gray-200 dark:border-white/10 hover:border-[#FF385C]/50 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${activeFilter === 'actifs' ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'}`}>
-              Baux Actifs
-            </span>
-            <CheckCircle2 className={`w-4 h-4 ${activeFilter === 'actifs' ? 'text-white' : 'text-[#FF385C]'}`} />
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-2">
-            {activeCount}
-          </p>
-        </button>
-
-        {/* 3. Échéance <= 30 jours */}
-        <button
-          type="button"
-          onClick={() => setActiveFilter('proches')}
-          className={`p-4 sm:p-5 rounded-2xl sm:rounded-3xl text-left transition-all duration-150 cursor-pointer border ${
-            activeFilter === 'proches'
-              ? 'bg-[#FF385C] text-white border-[#FF385C] shadow-md ring-2 ring-[#FF385C]/30 scale-[1.01]'
-              : 'bg-white dark:bg-[#1c1c1c] text-gray-900 dark:text-white border-gray-200 dark:border-white/10 hover:border-[#FF385C]/50 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${activeFilter === 'proches' ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'}`}>
-              Échéance &le; 30j
-            </span>
-            <Clock className={`w-4 h-4 ${activeFilter === 'proches' ? 'text-white' : 'text-[#FF385C]'}`} />
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-2">
-            {expiringSoonCount}
-          </p>
-        </button>
-
-        {/* 4. Délais Terminés */}
-        <button
-          type="button"
-          onClick={() => setActiveFilter('termines')}
-          className={`p-4 sm:p-5 rounded-2xl sm:rounded-3xl text-left transition-all duration-150 cursor-pointer border ${
-            activeFilter === 'termines'
-              ? 'bg-[#FF385C] text-white border-[#FF385C] shadow-md ring-2 ring-[#FF385C]/30 scale-[1.01]'
-              : 'bg-white dark:bg-[#1c1c1c] text-gray-900 dark:text-white border-gray-200 dark:border-white/10 hover:border-[#FF385C]/50 hover:shadow-xs'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className={`text-[11px] font-bold uppercase tracking-wider ${activeFilter === 'termines' ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'}`}>
-              Délais Terminés
-            </span>
-            <RefreshCw className={`w-4 h-4 ${activeFilter === 'termines' ? 'text-white' : 'text-[#FF385C]'}`} />
-          </div>
-          <p className="text-2xl sm:text-3xl font-bold tracking-tight mt-2">
-            {expiredCount}
-          </p>
-        </button>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div onClick={() => setActiveTab('all')} className={`cursor-pointer p-5 rounded-3xl shadow-sm flex flex-col justify-between space-y-4 transition ${activeTab === 'all' ? 'bg-[#FF385C] text-white' : 'bg-white border border-gray-200'}`}>
+          <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase">Total</span><FileText className="w-5 h-5" /></div>
+          <span className="text-3xl font-black">{totalCount}</span>
+        </div>
+        <div onClick={() => setActiveTab('active')} className={`cursor-pointer p-5 rounded-3xl shadow-sm flex flex-col justify-between space-y-4 transition ${activeTab === 'active' ? 'bg-[#FF385C] text-white' : 'bg-white border border-gray-200'}`}>
+          <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase">Actifs</span><Check className="w-5 h-5" /></div>
+          <span className="text-3xl font-black">{activeCount}</span>
+        </div>
+        <div onClick={() => setActiveTab('expiring')} className={`cursor-pointer p-5 rounded-3xl shadow-sm flex flex-col justify-between space-y-4 transition ${activeTab === 'expiring' ? 'bg-[#FF385C] text-white' : 'bg-white border border-gray-200'}`}>
+          <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase">Échéance &le; 30J</span><Clock className="w-5 h-5" /></div>
+          <span className="text-3xl font-black">{expiringCount}</span>
+        </div>
+        <div onClick={() => setActiveTab('expired')} className={`cursor-pointer p-5 rounded-3xl shadow-sm flex flex-col justify-between space-y-4 transition ${activeTab === 'expired' ? 'bg-[#FF385C] text-white' : 'bg-white border border-gray-200'}`}>
+          <div className="flex justify-between items-center"><span className="text-xs font-bold uppercase">Expirés</span><RefreshCw className="w-5 h-5" /></div>
+          <span className="text-3xl font-black">{expiredCount}</span>
+        </div>
       </div>
 
-      {/* CONTRACTS LIST OR CLEAN RECOMMENDATIONS */}
       {filteredContracts.length === 0 ? (
-        <div className="space-y-6">
-          <div className="text-center py-12 bg-white dark:bg-[#1c1c1c] rounded-3xl border border-gray-200 dark:border-white/10 p-8 space-y-3 shadow-xs">
-            <div className="w-14 h-14 bg-gray-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-[#FF385C] mx-auto">
-              <FileText className="w-7 h-7" />
-            </div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">
-              Aucun contrat dans cette catégorie
-            </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-md mx-auto leading-relaxed">
-              Dès que vous engagez un bail avec un propriétaire ou un locataire, vos fiches et délais apparaissent ici.
-            </p>
-            <button
-              type="button"
-              onClick={() => setNewContractModalOpen(true)}
-              className="mt-2 inline-flex items-center space-x-2 px-5 py-2.5 bg-[#FF385C] hover:bg-[#E00B41] text-white rounded-2xl text-xs font-bold shadow-xs cursor-pointer"
-            >
-              <PlusCircle className="w-4 h-4" />
-              <span>Créer un Contrat de Location</span>
-            </button>
-          </div>
-
-          {/* Suggestions */}
-          <div className="space-y-3">
-            <div className="flex items-center space-x-2">
-              <Heart className="w-4 h-4 text-[#FF385C]" />
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                Biens recommandés pour établir un bail
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {suggestedProperties.map((prop) => (
-                <div
-                  key={`suggest-${prop.id}`}
-                  className="bg-white dark:bg-[#1c1c1c] rounded-2xl sm:rounded-3xl border border-gray-200 dark:border-white/10 p-4 flex flex-col justify-between space-y-3 shadow-xs"
-                >
-                  <div className="flex space-x-3">
-                    <img
-                      src={prop.images[0]}
-                      alt={prop.title}
-                      className="w-16 h-16 rounded-2xl object-cover shrink-0"
-                    />
-                    <div className="overflow-hidden">
-                      <span className="text-[10px] font-bold text-[#FF385C] uppercase block">
-                        {prop.neighborhood} • ${prop.price}/mois
-                      </span>
-                      <h4 className="text-xs font-bold text-gray-900 dark:text-white truncate mt-0.5">
-                        {prop.title}
-                      </h4>
-                      <p className="text-[11px] text-gray-500 truncate">
-                        Bailleur : {prop.ownerName}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleInitiateForAdmiredProperty(prop)}
-                    className="w-full py-2.5 bg-gray-100 dark:bg-white/5 hover:bg-[#FF385C] hover:text-white text-gray-800 dark:text-gray-200 text-xs font-bold rounded-xl transition cursor-pointer"
-                  >
-                    Initier le bail pour ce bien
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+        <div className="text-center py-16 bg-white rounded-3xl border border-dashed border-gray-200 p-8">
+          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <h3 className="text-sm font-bold">Aucun contrat trouvé</h3>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredContracts.map((contract) => {
-            const status = getContractStatusDetails(contract);
-            const isTenant = user && (contract.tenantId === user.uid || (user.email && contract.tenantEmail.toLowerCase() === user.email.toLowerCase()));
-            const isLandlord = user && (contract.landlordId === user.uid || (user.email && contract.landlordEmail.toLowerCase() === user.email.toLowerCase()));
-            const isAdmin = user?.role === 'admin';
-            const canConfirm = (isLandlord || isAdmin || user?.role === 'agent') && contract.status === 'en_attente_confirmation';
-            const hasRenewalProposal = Boolean(contract.renewalProposal);
-
-            return (
-              <div
-                key={contract.id}
-                className={`bg-white dark:bg-[#1c1c1c] rounded-2xl sm:rounded-3xl border transition-all shadow-xs p-5 flex flex-col justify-between space-y-4 ${
-                  status.isExpired
-                    ? 'border-rose-300 dark:border-rose-900/60'
-                    : status.isExpiringSoon
-                    ? 'border-[#FF385C]/30'
-                    : 'border-gray-200 dark:border-white/10'
-                }`}
-              >
-                {/* Header: Title + Status Badge */}
-                <div>
-                  <div className="flex items-start justify-between gap-2.5">
-                    <div className="flex items-start space-x-3 min-w-0 flex-1">
-                      {contract.propertyImage ? (
-                        <img
-                          src={contract.propertyImage}
-                          alt={contract.propertyTitle}
-                          className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-gray-100 dark:border-white/10 shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center text-[#FF385C] shrink-0">
-                          <Building2 className="w-6 h-6" />
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center space-x-1.5 flex-wrap gap-1">
-                          <span
-                            className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                              isTenant
-                                ? 'bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200'
-                                : isLandlord
-                                ? 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                            }`}
-                          >
-                            {isTenant ? 'Locataire' : isLandlord ? 'Bailleur' : 'Contrat'}
-                          </span>
-                          <span className="text-[10px] text-gray-500 capitalize">
-                            {contract.propertyCategory} • {contract.propertyCommune}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-bold text-gray-900 dark:text-white mt-1 leading-snug truncate">
-                          {contract.propertyTitle}
-                        </h3>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate">
-                          {contract.propertyAddress} ({contract.propertyNeighborhood})
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Compact Badge Strictly Contained in the Card */}
-                    <div className="shrink-0">
-                      {contract.status === 'en_attente_confirmation' ? (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-200 whitespace-nowrap">
-                          En attente signature
-                        </span>
-                      ) : contract.status === 'demande_renouvellement' ? (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-200 whitespace-nowrap">
-                          Prolongation demandée
-                        </span>
-                      ) : status.isExpired ? (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 whitespace-nowrap">
-                          Délai Terminé
-                        </span>
-                      ) : status.isExpiringSoon ? (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#FF385C]/15 text-[#FF385C] whitespace-nowrap">
-                          Échéance &le; 30j ({status.daysRemaining}j)
-                        </span>
-                      ) : (
-                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-200 whitespace-nowrap">
-                          Actif ({status.daysRemaining}j)
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Lease Financial & Dates Grid */}
-                  <div className="grid grid-cols-2 gap-2 mt-3 p-3 rounded-2xl bg-gray-50 dark:bg-[#161616] text-xs border border-gray-100 dark:border-white/5">
-                    <div>
-                      <p className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-bold">Loyer Convenance</p>
-                      <p className="font-bold text-gray-900 dark:text-white mt-0.5">
-                        {contract.rentAmountUSD} $ / mois
-                      </p>
-                      {contract.depositAmountUSD && (
-                        <p className="text-[10px] text-gray-500">Caution: {contract.depositAmountUSD} $</p>
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-gray-500 dark:text-gray-400 text-[10px] uppercase font-bold">Période du Bail</p>
-                      <p className="font-bold text-gray-900 dark:text-white mt-0.5">
-                        Du {new Date(contract.startDate).toLocaleDateString('fr-FR')}
-                      </p>
-                      <p className={`text-[11px] font-bold ${status.isExpired ? 'text-rose-600 dark:text-rose-400' : 'text-gray-700 dark:text-gray-300'}`}>
-                        Au {new Date(contract.endDate).toLocaleDateString('fr-FR')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Pending Confirmation Banner */}
-                  {canConfirm && (
-                    <div className="mt-3 p-3 bg-[#FF385C]/10 dark:bg-[#FF385C]/20 border border-[#FF385C]/30 rounded-2xl space-y-2">
-                      <div className="flex items-center space-x-2 text-xs font-bold text-[#FF385C] dark:text-[#FF6584]">
-                        <ShieldCheck className="w-4 h-4 text-[#FF385C] shrink-0" />
-                        <span>Contrat soumis par le locataire — Signature requise</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleConfirmContract(contract.id)}
-                        className="w-full py-2 bg-[#FF385C] hover:bg-[#e00b41] text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer flex items-center justify-center space-x-1.5"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Confirmer & Signer le Bail</span>
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Renewal Proposal Banner */}
-                  {hasRenewalProposal && (isLandlord || isAdmin || user?.role === 'agent') && (
-                    <div className="mt-3 p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl space-y-2">
-                      <p className="text-xs font-bold text-rose-900 dark:text-rose-200">
-                        Demande de prolongation jusqu'au {new Date(contract.renewalProposal!.requestedEndDate).toLocaleDateString('fr-FR')}
-                      </p>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          type="button"
-                          onClick={() => handleAcceptRenewal(contract.id)}
-                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition"
-                        >
-                          Accepter
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRejectRenewal(contract.id)}
-                          className="px-3 py-2 bg-gray-200 dark:bg-white/10 hover:bg-gray-300 text-gray-800 dark:text-white text-xs font-bold rounded-xl transition"
-                        >
-                          Refuser
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Parties Details */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3 text-xs">
-                    <div className="p-2.5 rounded-2xl border border-gray-100 dark:border-white/5">
-                      <span className="text-[10px] font-bold text-gray-500 block">Locataire</span>
-                      <p className="font-bold text-gray-900 dark:text-white truncate">{contract.tenantName}</p>
-                      <p className="text-[11px] text-gray-500 truncate">{contract.tenantPhone}</p>
-                    </div>
-                    <div className="p-2.5 rounded-2xl border border-gray-100 dark:border-white/5">
-                      <span className="text-[10px] font-bold text-gray-500 block">Bailleur / Propriétaire</span>
-                      <p className="font-bold text-gray-900 dark:text-white truncate">{contract.landlordName}</p>
-                      <p className="text-[11px] text-gray-500 truncate">{contract.landlordPhone}</p>
-                    </div>
+        <div className="space-y-4">
+          {filteredContracts.map((contract) => (
+            <div key={contract.id} className="bg-white rounded-3xl border border-gray-200 p-6 shadow-xs space-y-4">
+              <div className="flex justify-between items-start">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center font-bold"><Building2 className="w-5 h-5" /></div>
+                  <div>
+                    <h3 className="font-bold">{contract.propertyTitle}</h3>
+                    <p className="text-xs text-gray-500">Quartier {contract.propertyNeighborhood}, {contract.propertyCommune}</p>
                   </div>
                 </div>
-
-                {/* Bottom Actions */}
-                <div className="pt-2 border-t border-gray-100 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center space-x-2">
-                    <a
-                      href={`https://wa.me/${(isTenant ? contract.landlordPhone : contract.tenantPhone).replace(/[^0-9]/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 hover:opacity-80 transition cursor-pointer"
-                      title="Contacter sur WhatsApp"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenCertificate(contract)}
-                      className="px-3 py-2 rounded-xl bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-200 hover:text-gray-900 text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
-                      title="Fiche de Bail & Reçu"
-                    >
-                      <Printer className="w-3.5 h-3.5" />
-                      <span>Fiche & Attestation</span>
-                    </button>
-                  </div>
-
-                  <div className="flex items-center space-x-1.5">
-                    {status.isExpired ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRenewModal(contract)}
-                        className="px-3 py-2 bg-[#FF385C] hover:bg-[#E00B41] text-white rounded-xl text-xs font-bold flex items-center space-x-1 transition cursor-pointer shadow-xs"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        <span>Renouveler</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenRenewModal(contract)}
-                        className="px-3 py-2 text-gray-700 dark:text-gray-300 hover:text-[#FF385C] text-xs font-bold transition cursor-pointer"
-                      >
-                        Prolonger
-                      </button>
-                    )}
-
-                    {/* Delete button available for Admin or associated parties */}
-                    {(isAdmin || isLandlord || isTenant || user?.role === 'agent' || user?.role === 'bailleur') && (
-                      <button
-                        type="button"
-                        onClick={() => setDeleteConfirmId(contract.id)}
-                        className="p-2 text-gray-400 hover:text-rose-600 transition cursor-pointer"
-                        title="Supprimer ce contrat"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                <span className="px-3 py-1 bg-emerald-50 text-emerald-600 rounded-full text-xs font-bold">
+                  {contract.status === 'pending' ? 'En attente' : 'Actif'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4 text-xs">
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <p className="font-bold text-gray-400">LOYER</p>
+                  <p className="font-bold">{contract.monthlyRent} $ / mois</p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-xl">
+                  <p className="font-bold text-gray-400">PÉRIODE</p>
+                  <p className="font-bold">Du {contract.startDate} au {contract.endDate}</p>
                 </div>
               </div>
-            );
-          })}
+              <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                <div className="flex space-x-2">
+                  <button onClick={() => showToast('Discussion ouverte')} className="p-2 bg-emerald-50 text-emerald-600 rounded-xl"><MessageCircle className="w-4 h-4" /></button>
+                  <button onClick={() => setSelectedContractForSheet(contract)} className="flex items-center space-x-1 px-3 py-2 bg-gray-100 rounded-xl font-bold text-xs"><FileText className="w-4 h-4 text-[#FF385C]" /><span>Fiche & Attestation</span></button>
+                </div>
+                <button onClick={() => { deleteContract(contract.id); refreshContracts(); showToast('Supprimé'); }} className="p-2 text-gray-400 hover:text-rose-500"><Trash2 className="w-4 h-4" /></button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* MODAL 1: NEW LEASE CONTRACT */}
+      {/* Modale Nouveau Contrat avec Choix du Délai, Date de Signature et Calcul Automatique de la Fin */}
       {newContractModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#1e1e1e] rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-gray-100 dark:border-white/10 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center space-x-2.5 pb-4 border-b border-gray-100 dark:border-white/10">
-              <div className="w-8 h-8 rounded-xl bg-[#FF385C]/10 text-[#FF385C] flex items-center justify-center">
-                <FileText className="w-4 h-4" />
-              </div>
-              <h3 className="text-base font-bold tracking-tight text-gray-900 dark:text-white">
-                Établir un Nouveau Contrat de Bail
-              </h3>
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b pb-3">
+              <h3 className="font-bold text-base">Rédiger un Contrat de Bail</h3>
+              <span className="text-[10px] font-bold px-2.5 py-1 bg-rose-50 text-rose-600 rounded-full">
+                Bail officiel NyumbaLink
+              </span>
             </div>
 
-            <form onSubmit={handleCreateContractSubmit} className="space-y-4 pt-4 text-xs text-gray-800 dark:text-gray-200">
-              {/* Mode Selection */}
+            <form onSubmit={handleCreateContractSubmit} className="space-y-3 text-xs">
               <div>
-                <label className="block text-[11px] font-bold text-gray-500 mb-1.5 uppercase">1. Choix du Bien</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPropertySelectionMode('catalog')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
-                      propertySelectionMode === 'catalog'
-                        ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-gray-900 dark:border-white'
-                        : 'bg-gray-50 dark:bg-[#161616] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-white/10'
-                    }`}
-                  >
-                    Bien du Catalogue
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPropertySelectionMode('custom')}
-                    className={`py-2 px-3 rounded-xl border text-xs font-bold transition cursor-pointer ${
-                      propertySelectionMode === 'custom'
-                        ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 border-gray-900 dark:border-white'
-                        : 'bg-gray-50 dark:bg-[#161616] text-gray-600 dark:text-gray-400 border-gray-200 dark:border-white/10'
-                    }`}
-                  >
-                    Bien Personnalisé
-                  </button>
-                </div>
+                <label className="block font-bold mb-1">Bien immobilier</label>
+                <select value={selectedPropertyId} onChange={e => setSelectedPropertyId(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50">
+                  {safeProperties.map(p => <option key={p.id} value={p.id}>{p.title} (${p.price})</option>)}
+                </select>
               </div>
 
-              {propertySelectionMode === 'catalog' ? (
+              <div>
+                <label className="block font-bold mb-1">Nom du Locataire</label>
+                <input type="text" value={formTenantName} onChange={e => setFormTenantName(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50" required />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">Téléphone / Contact</label>
+                <input type="text" value={formTenantPhone} onChange={e => setFormTenantPhone(e.target.value)} className="w-full p-3 rounded-xl border bg-gray-50" required />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1">Loyer (USD)</label>
+                <input type="number" value={formRentUSD} onChange={e => setFormRentUSD(Number(e.target.value))} className="w-full p-3 rounded-xl border bg-gray-50" required />
+              </div>
+
+              {/* Sélection du délai / durée du bail */}
+              <div>
+                <label className="block font-bold mb-1">Délai / Durée du bail</label>
+                <select 
+                  value={formDurationMonths} 
+                  onChange={e => handleDurationChange(Number(e.target.value))} 
+                  className="w-full p-3 rounded-xl border bg-gray-50 font-bold text-rose-600"
+                >
+                  <option value={1}>1 Mois (Court terme)</option>
+                  <option value={3}>3 Mois (Trimestriel)</option>
+                  <option value={6}>6 Mois (Semestriel)</option>
+                  <option value={12}>1 An (12 Mois - Standard)</option>
+                  <option value={24}>2 Ans (24 Mois)</option>
+                  <option value={36}>3 Ans (36 Mois)</option>
+                </select>
+              </div>
+
+              {/* Date de signature / début et date de fin calculée */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-200">
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-500 mb-1">Sélectionner l'annonce</label>
-                  <select
-                    value={selectedPropertyId}
-                    onChange={(e) => handlePropertySelectionChange(e.target.value)}
-                    className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#161616] font-bold text-xs"
-                  >
-                    {properties.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.title} — {p.neighborhood} (${p.price}/mois)
-                      </option>
-                    ))}
-                  </select>
+                  <label className="block font-bold mb-1 text-gray-700 flex items-center space-x-1">
+                    <Calendar className="w-3.5 h-3.5 text-[#FF385C]" />
+                    <span>Date de signature (Début)</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    value={formStartDate} 
+                    onChange={e => handleStartDateChange(e.target.value)} 
+                    className="w-full p-2.5 rounded-xl border bg-white font-medium" 
+                    required 
+                  />
                 </div>
-              ) : (
-                <div className="space-y-2.5 p-3 rounded-2xl bg-gray-50 dark:bg-[#161616] border border-gray-200 dark:border-white/10">
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-500 mb-1">Titre ou désignation du bien</label>
-                    <input
-                      type="text"
-                      required
-                      value={customPropertyTitle}
-                      onChange={(e) => setCustomPropertyTitle(e.target.value)}
-                      placeholder="Ex: Appartement 3 chambres Nguba"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs font-bold"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Commune</label>
-                      <select
-                        value={customPropertyCommune}
-                        onChange={(e) => setCustomPropertyCommune(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                      >
-                        <option value="Ibanda">Ibanda</option>
-                        <option value="Kadutu">Kadutu</option>
-                        <option value="Bagira">Bagira</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Quartier</label>
-                      <input
-                        type="text"
-                        value={customPropertyNeighborhood}
-                        onChange={(e) => setCustomPropertyNeighborhood(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-500 mb-1">Adresse précise</label>
-                    <input
-                      type="text"
-                      value={customPropertyAddress}
-                      onChange={(e) => setCustomPropertyAddress(e.target.value)}
-                      placeholder="Ex: Av. Patrice Emery Lumumba, N° 12"
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Tenant Details */}
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-[#161616] border border-gray-200 dark:border-white/10 space-y-2.5">
-                <span className="text-[11px] font-bold text-gray-500 uppercase block">2. Informations Locataire</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Nom complet</label>
-                    <input
-                      type="text"
-                      required
-                      value={formTenantName}
-                      onChange={(e) => setFormTenantName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">N° WhatsApp</label>
-                    <input
-                      type="text"
-                      required
-                      value={formTenantPhone}
-                      onChange={(e) => setFormTenantPhone(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                    />
-                  </div>
+                <div>
+                  <label className="block font-bold mb-1 text-gray-700 flex items-center space-x-1">
+                    <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Date de fin (Automatique)</span>
+                  </label>
+                  <input 
+                    type="date" 
+                    value={formEndDate} 
+                    disabled 
+                    className="w-full p-2.5 rounded-xl border bg-gray-100 text-gray-600 font-bold cursor-not-allowed" 
+                  />
                 </div>
               </div>
 
-              {/* Landlord Details */}
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-[#161616] border border-gray-200 dark:border-white/10 space-y-2.5">
-                <span className="text-[11px] font-bold text-gray-500 uppercase block">3. Informations Bailleur / Propriétaire</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Nom du Bailleur</label>
-                    <input
-                      type="text"
-                      required
-                      value={formLandlordName}
-                      onChange={(e) => setFormLandlordName(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Téléphone WhatsApp Bailleur</label>
-                    <input
-                      type="text"
-                      required
-                      value={formLandlordPhone}
-                      onChange={(e) => setFormLandlordPhone(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Terms & Dates */}
-              <div className="p-3 rounded-2xl bg-gray-50 dark:bg-[#161616] border border-gray-200 dark:border-white/10 space-y-2.5">
-                <span className="text-[11px] font-bold text-gray-500 uppercase block">4. Conditions Financières & Période</span>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Loyer Mensuel ($)</label>
-                    <input
-                      type="number"
-                      required
-                      value={formRentUSD}
-                      onChange={(e) => setFormRentUSD(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Garantie Locative / Caution ($)</label>
-                    <input
-                      type="number"
-                      required
-                      value={formDepositUSD}
-                      onChange={(e) => setFormDepositUSD(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Date de début</label>
-                    <input
-                      type="date"
-                      required
-                      value={formStartDate}
-                      onChange={(e) => setFormStartDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-gray-500 mb-1">Date d'échéance</label>
-                    <input
-                      type="date"
-                      required
-                      value={formEndDate}
-                      onChange={(e) => setFormEndDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#202020] text-xs"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Bottom Buttons */}
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100 dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setNewContractModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 bg-[#FF385C] hover:bg-[#E00B41] text-white rounded-2xl text-xs font-bold transition shadow-xs cursor-pointer"
-                >
-                  Créer & Enregistrer le Contrat
-                </button>
+              <div className="flex justify-end space-x-2 pt-3 border-t">
+                <button type="button" onClick={() => setNewContractModalOpen(false)} className="px-4 py-2 rounded-xl border font-bold">Annuler</button>
+                <button type="submit" className="px-5 py-2 bg-[#FF385C] hover:bg-[#E00B41] text-white rounded-xl font-bold shadow-md">Soumettre et Créer</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL 2: RENEWAL REQUEST */}
-      {renewModalContract && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#1e1e1e] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-white/10">
-            <div className="flex items-center space-x-2.5 pb-3 border-b border-gray-100 dark:border-white/10">
-              <RefreshCw className="w-5 h-5 text-[#FF385C]" />
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                Prolongation / Renouvellement de Bail
-              </h3>
-            </div>
-
-            <form onSubmit={handleRenewSubmit} className="space-y-4 pt-3 text-xs">
-              <p className="text-gray-600 dark:text-gray-300">
-                Bien : <strong>{renewModalContract.propertyTitle}</strong>
-              </p>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-500 mb-1">Nouvelle date d'échéance souhaitée</label>
-                <input
-                  type="date"
-                  required
-                  value={renewEndDate}
-                  onChange={(e) => setRenewEndDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#161616] text-xs font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-500 mb-1">Loyer mensuel convenu ($ USD)</label>
-                <input
-                  type="number"
-                  value={renewRentAmount}
-                  onChange={(e) => setRenewRentAmount(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#161616] text-xs font-bold"
-                />
-              </div>
-
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100 dark:border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setRenewModalContract(null)}
-                  className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-[#FF385C] hover:bg-[#E00B41] text-white rounded-xl text-xs font-bold cursor-pointer shadow-xs"
-                >
-                  Confirmer la Demande
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: LEASE CERTIFICATE & ATTESTATION WITH EDITING & PRINT/PDF */}
-      {certificateModalContract && certData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#1a1a1a] rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 dark:border-white/10 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-white/10">
-              <div className="flex items-center space-x-2">
-                <FileText className="w-5 h-5 text-[#FF385C]" />
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                  Fiche de Bail & Attestation de Location
-                </h3>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsEditingCertificate(!isEditingCertificate)}
-                className="px-3 py-1.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-800 dark:text-white rounded-xl text-xs font-bold flex items-center space-x-1 cursor-pointer transition"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>{isEditingCertificate ? 'Aperçu du document' : 'Modifier les détails'}</span>
-              </button>
-            </div>
-
-            {/* Printable & Downloadable Document Container */}
-            <div
-              id="printable-lease-certificate"
-              className="p-6 my-4 rounded-2xl border border-gray-200 dark:border-white/10 bg-white text-xs space-y-4 text-gray-900 shadow-xs print:border-none print:bg-white print:text-black print:p-0"
-            >
-              {/* Header with NyumbaLink Logo & Official Registration Info */}
-              <div className="text-center pb-4 border-b border-gray-200 flex flex-col items-center">
-                <div className="mb-2 flex items-center justify-center">
-                  <BrandLogo size="md" showText={true} />
+      {/* Modale Fiche & Attestation */}
+      {selectedContractForSheet && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden my-8">
+            <div className="p-6 overflow-y-auto max-h-[75vh]">
+              <div ref={sheetRef} className="bg-white text-black p-8 rounded-2xl border border-gray-300 space-y-6">
+                <div className="text-center space-y-1 border-b border-gray-200 pb-4">
+                  <h2 className="text-xl font-black text-rose-600">NyumbaLink</h2>
+                  <p className="text-[10px] font-bold text-gray-500 uppercase">RÉPUBLIQUE DÉMOCRATIQUE DU CONGO • BUKAVU</p>
+                  <span className="inline-block px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-bold">ATTESTATION DE LOCATION OFFICIELLE</span>
                 </div>
-                <h4 className="text-xs sm:text-sm font-black uppercase tracking-wider text-gray-900">
-                  RÉPUBLIQUE DÉMOCRATIQUE DU CONGO
-                </h4>
-                <p className="text-[10px] text-gray-500 uppercase font-semibold">
-                  PROVINCE DU SUD-KIVU • VILLE DE BUKAVU
-                </p>
-                <div className="inline-block mt-2 px-3 py-1 bg-[#FF385C]/10 rounded-full">
-                  <p className="text-xs font-extrabold text-[#FF385C] uppercase tracking-wide">
-                    ATTESTATION D'ENGAGEMENT LOCATIF & FICHE DE BAIL OFFICIELLE
-                  </p>
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="p-3 bg-gray-50 rounded-xl space-y-1 border border-gray-100">
+                    <span className="font-bold text-gray-400">BIEN</span>
+                    <p className="font-bold">{selectedContractForSheet.propertyTitle}</p>
+                    <p className="text-gray-600">Quartier {selectedContractForSheet.propertyNeighborhood}, {selectedContractForSheet.propertyCommune}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-xl space-y-1 border border-gray-100">
+                    <span className="font-bold text-gray-400">CONDITIONS</span>
+                    <p className="font-bold text-emerald-600">{selectedContractForSheet.monthlyRent} USD / mois</p>
+                    <p className="text-gray-600">Caution : {selectedContractForSheet.depositAmount} USD</p>
+                  </div>
                 </div>
-              </div>
-
-              {isEditingCertificate ? (
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-xs">
+                  <div className="p-3 bg-gray-50 rounded-xl space-y-1 border border-gray-100">
+                    <span className="font-bold text-gray-400">LOCATAIRE</span>
+                    <p className="font-bold">{selectedContractForSheet.tenantName}</p>
+                    <p className="text-gray-600">{selectedContractForSheet.tenantPhone}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-xl space-y-1 border border-gray-100">
+                    <span className="font-bold text-gray-400">PROPRIÉTAIRE</span>
+                    <p className="font-bold">{selectedContractForSheet.landlordName}</p>
+                    <p className="text-gray-600">{selectedContractForSheet.landlordPhone}</p>
+                  </div>
+                </div>
+                <div className="p-3 bg-rose-50 rounded-xl text-xs border border-rose-100 flex items-center justify-between">
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-500 mb-1">Titre de la propriété</label>
-                    <input
-                      type="text"
-                      value={certData.propertyTitle}
-                      onChange={(e) => setCertData({ ...certData, propertyTitle: e.target.value })}
-                      className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold text-gray-900"
-                    />
+                    <span className="font-bold text-rose-600">PÉRIODE DE LOCATION : </span>
+                    <span>Du {selectedContractForSheet.startDate} au {selectedContractForSheet.endDate}</span>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Nom du Locataire</label>
-                      <input
-                        type="text"
-                        value={certData.tenantName}
-                        onChange={(e) => setCertData({ ...certData, tenantName: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Téléphone Locataire</label>
-                      <input
-                        type="text"
-                        value={certData.tenantPhone}
-                        onChange={(e) => setCertData({ ...certData, tenantPhone: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                      />
-                    </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 bg-white text-rose-600 rounded-md border border-rose-200">
+                    Signé le {selectedContractForSheet.startDate}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2 pt-2 text-center text-[10px]">
+                  <div className="p-3 border border-gray-200 rounded-xl space-y-1">
+                    <p className="font-bold uppercase text-gray-500">1. Client / Locataire</p>
+                    <p className="font-bold text-black mt-1">{selectedContractForSheet.tenantName}</p>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Nom du Bailleur</label>
-                      <input
-                        type="text"
-                        value={certData.landlordName}
-                        onChange={(e) => setCertData({ ...certData, landlordName: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Téléphone Bailleur</label>
-                      <input
-                        type="text"
-                        value={certData.landlordPhone}
-                        onChange={(e) => setCertData({ ...certData, landlordPhone: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                      />
-                    </div>
+                  <div className="p-3 border border-gray-200 rounded-xl space-y-1">
+                    <p className="font-bold uppercase text-gray-500">2. Propriétaire du Bien</p>
+                    <p className="font-bold text-black mt-1">{selectedContractForSheet.landlordName}</p>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Loyer Mensuel (USD)</label>
-                      <input
-                        type="number"
-                        value={certData.rentAmountUSD}
-                        onChange={(e) => setCertData({ ...certData, rentAmountUSD: Number(e.target.value) })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs font-bold text-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Caution (USD)</label>
-                      <input
-                        type="number"
-                        value={certData.depositAmountUSD}
-                        onChange={(e) => setCertData({ ...certData, depositAmountUSD: Number(e.target.value) })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Date de début</label>
-                      <input
-                        type="date"
-                        value={certData.startDate}
-                        onChange={(e) => setCertData({ ...certData, startDate: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-gray-500 mb-1">Date d'échéance</label>
-                      <input
-                        type="date"
-                        value={certData.endDate}
-                        onChange={(e) => setCertData({ ...certData, endDate: e.target.value })}
-                        className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-500 mb-1">Clauses & Notes</label>
-                    <textarea
-                      rows={2}
-                      value={certData.specialClauses}
-                      onChange={(e) => setCertData({ ...certData, specialClauses: e.target.value })}
-                      className="w-full px-3 py-1.5 rounded-xl border border-gray-200 bg-gray-50 text-xs text-gray-900"
-                    />
+                  <div className="p-3 border border-rose-200 bg-rose-50 rounded-xl space-y-1">
+                    <p className="font-bold uppercase text-rose-600">3. Pour NyumbaLink</p>
+                    <p className="font-bold text-black mt-1">BARAKA SHAMAMBA Bénite<br />DAVID MAKINDU Shilla</p>
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold block">Bien Loué</span>
-                      <p className="font-bold text-gray-900">{certData.propertyTitle}</p>
-                      <p className="text-[11px] text-gray-600">
-                        {certData.propertyAddress}, {certData.propertyNeighborhood}, Ville de Bukavu
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold block">Conditions Financières</span>
-                      <p className="font-bold text-gray-900">{certData.rentAmountUSD} USD / mois</p>
-                      <p className="text-[11px] text-gray-600">Caution versée : {certData.depositAmountUSD} USD</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200">
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold block">Locataire</span>
-                      <p className="font-bold text-gray-900">{certData.tenantName}</p>
-                      <p className="text-[11px] text-gray-600">{certData.tenantPhone}</p>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase font-bold block">Bailleur / Propriétaire</span>
-                      <p className="font-bold text-gray-900">{certData.landlordName}</p>
-                      <p className="text-[11px] text-gray-600">{certData.landlordPhone}</p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-gray-200">
-                    <span className="text-[10px] text-gray-500 uppercase font-bold block">Délai de Validité du Bail</span>
-                    <p className="font-bold text-[#FF385C]">
-                      Du {new Date(certData.startDate).toLocaleDateString('fr-FR')} au {new Date(certData.endDate).toLocaleDateString('fr-FR')} (Préavis légal de 5 jours requis)
-                    </p>
-                  </div>
-
-                  {certData.specialClauses && (
-                    <div className="pt-2 border-t border-gray-200">
-                      <span className="text-[10px] text-gray-500 uppercase font-bold block">Clauses Particulières</span>
-                      <p className="text-[11px] text-gray-600 italic">
-                        "{certData.specialClauses}"
-                      </p>
-                    </div>
-                  )}
-
-                  {/* 3 DISTINCT SIGNATURE BOXES: LOCATAIRE, BAILLEUR/AGENT, ET NYUMBALINK */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-dashed border-gray-300 text-center">
-                    {/* 1. Locataire */}
-                    <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50/70 flex flex-col justify-between min-h-[115px]">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase text-gray-500">1. Signature Locataire</p>
-                        <p className="text-xs font-bold text-gray-900 mt-1">{certData.tenantName}</p>
-                        <p className="text-[9px] text-gray-400 italic">"Lu et approuvé, bon pour accord"</p>
-                      </div>
-                      <div className="pt-2 border-t border-gray-200 text-left">
-                        <span className="text-[9px] text-gray-500 font-mono">Date : {new Date(certData.startDate).toLocaleDateString('fr-FR')}</span>
-                      </div>
-                    </div>
-
-                    {/* 2. Bailleur ou Agent */}
-                    <div className="border border-gray-200 rounded-2xl p-3 bg-gray-50/70 flex flex-col justify-between min-h-[115px]">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase text-gray-500">2. Bailleur ou Agent Agréé</p>
-                        <p className="text-xs font-bold text-gray-900 mt-1">{certData.landlordName}</p>
-                        <p className="text-[9px] text-gray-400 italic">"Lu et approuvé, engagement du bailleur"</p>
-                      </div>
-                      <div className="pt-2 border-t border-gray-200 text-left">
-                        <span className="text-[9px] text-gray-500 font-mono">Date : {new Date(certData.startDate).toLocaleDateString('fr-FR')}</span>
-                      </div>
-                    </div>
-
-                    {/* 3. Pour NyumbaLink */}
-                    <div className="border border-[#FF385C]/30 bg-[#FF385C]/5 rounded-2xl p-3 flex flex-col justify-between min-h-[115px]">
-                      <div>
-                        <p className="text-[10px] font-bold uppercase text-[#FF385C]">3. Pour NyumbaLink</p>
-                        <div className="mt-2 space-y-1 text-center">
-                          <p className="text-xs font-bold text-gray-900 leading-tight">BARAKA SHAMAMBA Bénite</p>
-                          <p className="text-xs font-bold text-gray-700 leading-tight">DAVID MAKINDU</p>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-[#FF385C]/20 text-center">
-                        <span className="text-[9px] font-mono text-[#FF385C] font-extrabold tracking-wider">CERTIFIÉ CONFORME</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+              </div>
             </div>
-
-            {/* Bottom Controls - Clean, without redundant print button */}
-            <div className="flex items-center justify-end space-x-2 pt-3 border-t border-gray-100 dark:border-white/10">
-              <button
-                type="button"
-                onClick={() => setCertificateModalContract(null)}
-                className="px-4 py-2 text-xs font-bold text-gray-500 hover:text-gray-900 dark:hover:text-white cursor-pointer"
-              >
-                Fermer
-              </button>
-              <button
-                type="button"
-                disabled={isGeneratingPdf}
-                onClick={handleDownloadPdf}
-                className="px-5 py-2.5 bg-[#FF385C] hover:bg-[#E00B41] disabled:opacity-75 text-white rounded-2xl text-xs font-bold flex items-center space-x-2 cursor-pointer shadow-xs transition"
-              >
-                {isGeneratingPdf ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Génération du PDF...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    <span>Télécharger en PDF</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Deletion Confirmation Modal */}
-      {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white dark:bg-[#1e1e1e] rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 dark:border-white/10 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/50 text-rose-600 flex items-center justify-center mx-auto">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-gray-900 dark:text-white">
-                Supprimer ce contrat ?
-              </h4>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 leading-relaxed">
-                Cette action supprimera définitivement le contrat de location de votre liste.
-              </p>
-            </div>
-            <div className="flex items-center space-x-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setDeleteConfirmId(null)}
-                className="flex-1 py-2.5 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 text-gray-700 dark:text-gray-300 rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDelete(deleteConfirmId)}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer"
-              >
-                Supprimer
-              </button>
+            
+            <div className="flex justify-between items-center px-6 py-4 bg-gray-50 border-t border-gray-200">
+              <button onClick={() => setSelectedContractForSheet(null)} className="px-4 py-2 bg-gray-200 rounded-xl text-xs font-bold text-gray-700">Fermer</button>
+              <button onClick={handleDownloadPdf} className="flex items-center space-x-2 px-6 py-2.5 bg-[#FF385C] text-white rounded-xl text-xs font-bold shadow-md"><Download className="w-4 h-4" /><span>Télécharger en PDF</span></button>
             </div>
           </div>
         </div>
@@ -1348,5 +458,3 @@ export const ContractsView: React.FC<ContractsViewProps> = ({
     </div>
   );
 };
-
-export default ContractsView;
