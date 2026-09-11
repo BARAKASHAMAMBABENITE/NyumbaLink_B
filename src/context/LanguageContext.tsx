@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 
-export type Language = 'fr' | 'en';
+export type Language = 'fr' | 'en' | 'sw';
 
 interface LanguageContextType {
   language: Language;
@@ -114,6 +114,59 @@ const translations: Record<Language, Record<string, string>> = {
     feedbackSentSuccess: 'Thank you! Your feedback has been received.',
     appVersion: 'Version 1.2.0',
     appUpToDate: 'Up to date'
+  },
+  sw: {
+    home: 'Nyumbani',
+    listings: 'Matangazo',
+    map: 'Ramani ya Maingiliano',
+    favorites: 'Vipendwa',
+    dashboard: 'Dashibodi',
+    settings: 'Mipangilio',
+    login: 'Ingia',
+    logout: 'Toka',
+    publish: 'Chapisha Tangazo',
+    allCommunes: 'Manispaa zote 3',
+    searchPlaceholder: 'Tafuta nyumba, mtaa, manispaa...',
+    trash: 'Taka za Matangazo',
+    assistance: 'Msaada na Maoni',
+    privacy: 'Faragha na Masharti',
+    userProfile: 'Wasifu wa Mtumiaji',
+    languageSetting: 'Lugha ya Maonyesho',
+    updates: 'Masasisho na Matangazo',
+    heroTitlePrefix: 'Pata nyumba yako bora huko ',
+    heroSubtitle: 'Nyumba za familia, viwanja vyenye hati na apartimenti bora katika manispaa za Ibanda, Kadutu na Bagira.',
+    communeLabel: 'Manispaa',
+    categoryLabel: 'Aina ya nyumba',
+    transactionLabel: 'Muamala',
+    streetNeighborhoodLabel: 'Mtaa au Jirani',
+    searchButton: 'Tafuta Nyumba',
+    allTypes: 'Aina zote',
+    forSale: 'Inauzwa',
+    forRent: 'Inapangishwa',
+    saleAndRent: 'Uuzaji na Upangishaji',
+    house: 'Nyumba',
+    plot: 'Kiwanja / Ardhi',
+    apartment: 'Apartimenti',
+    villa: 'Vila ya VIP',
+    commercial: 'Jengo la Biashara',
+    featuredProperties: 'Nyumba Bora Bukavu',
+    featuredSubtitle: 'Chaguo la fursa bora za mali isiyohamishika jijini',
+    recentListings: 'Matangazo ya Hivi Karibuni',
+    recentSubtitle: 'Masasisho ya kila siku yenye mawasiliano ya wamiliki na mawakala',
+    viewAll: 'Tazama matangazo yote',
+    exploreByCategory: 'Vinjari kwa Aina',
+    the3Communes: 'Manispaa 3 za Bukavu',
+    myFavoritesTitle: 'Nyumba Ninazopenda',
+    noFavorites: 'Hakuna kipendwa bado',
+    exploreListings: 'Vinjari Matangazo',
+    saveProfile: 'Hifadhi Mabadiliko',
+    emptyTrashBtn: 'Futa taka zote',
+    restoreBtn: 'Rejesha',
+    deletePermanentlyBtn: 'Futa kabisa',
+    sendFeedback: 'Tuma Maoni',
+    feedbackSentSuccess: 'Asante! Ujumbe wako umetumwa kwa timu.',
+    appVersion: 'Toleo 1.2.0',
+    appUpToDate: 'Imesasishwa'
   }
 };
 
@@ -127,7 +180,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [language, setLanguageState] = useState<Language>(() => {
     try {
       const saved = localStorage.getItem('nyumbalink_lang') as Language;
-      return saved === 'en' || saved === 'fr' ? saved : 'fr';
+      return saved === 'en' || saved === 'fr' || saved === 'sw' ? saved : 'fr';
     } catch {
       return 'fr';
     }

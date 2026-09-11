@@ -28,8 +28,8 @@ import { PartnerFurnitureModal } from './components/PartnerFurnitureModal';
 import { AgentSubscriptionModal } from './components/AgentSubscriptionModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 import { OnboardingSplashScreen } from './views/OnboardingSplashScreen';
-import { getUserInquiries } from './services/inquiryService';
-import { getContractNotifications } from './services/contractService';
+import { getUserInquiries, migrateLocalInquiriesToFirestore } from './services/inquiryService';
+import { getContractNotifications, migrateLocalContractsToFirestore } from './services/contractService';
 import { notifyNewPropertyPublished } from './services/notificationService';
 
 import {
@@ -78,6 +78,12 @@ export default function App() {
     return null;
   });
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setCurrentTab('home');
+    setSelectedProperty(null);
+    setSidebarOpen(false);
+  }, [user?.uid]);
 
   // Filter State
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({
@@ -139,9 +145,29 @@ export default function App() {
   };
 
   // User-isolated unread message inquiries count + contract expiry alerts
-  const unreadMessagesCount = getUserInquiries(user).filter((i) => !i.isRead).length;
-  const contractNotifications = getContractNotifications(user);
-  const totalNotificationsCount = unreadMessagesCount + contractNotifications.totalAlerts;
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [contractNotifications, setContractNotifications] = useState({
+    expired: [],
+    expiringSoon: [],
+    totalAlerts: 0,
+    unreadAlerts: 0
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      migrateLocalInquiriesToFirestore(user),
+      migrateLocalContractsToFirestore(user)
+    ]);
+    Promise.all([getUserInquiries(user), getContractNotifications(user)]).then(([inquiries, alerts]) => {
+      if (cancelled) return;
+      setUnreadMessagesCount(inquiries.filter((item) => !item.isRead).length);
+      setContractNotifications(alerts);
+    });
+    return () => { cancelled = true; };
+  }, [user, messagesModalOpen]);
+
+  const totalNotificationsCount = unreadMessagesCount + contractNotifications.unreadAlerts;
 
   // New properties alert count (properties created after lastSeenPropertiesTime)
   const unreadNewPropertiesCount = properties.filter((p) => {
@@ -399,7 +425,8 @@ export default function App() {
 
   // Delete Property (Agent / Admin)
   const handleDeleteProperty = async (id: string) => {
-    await deletePropertyFromStore(id);
+    if (!user) return;
+    await deletePropertyFromStore(id, user.uid);
     setProperties((prev) => prev.filter((p) => p.id !== id));
     if (selectedProperty?.id === id) {
       setSelectedProperty(null);
@@ -464,7 +491,7 @@ export default function App() {
         />
 
         {/* Main Content Router */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
         {currentTab === 'listings' ? (
           <ListingsView
             properties={properties}
@@ -563,7 +590,7 @@ export default function App() {
       </main>
 
         {/* Footer */}
-        <Footer setCurrentTab={handleSetCurrentTab} />
+        <Footer />
       </div>
 
       {/* Modals */}

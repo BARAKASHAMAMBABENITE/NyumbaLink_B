@@ -167,7 +167,7 @@ export const ListingsView: React.FC<ListingsViewProps> = ({
           className={`grid gap-6 ${
             viewMode === 'list'
               ? 'grid-cols-1'
-              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+              : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
           }`}
         >
           {filteredProperties.map((prop) => (

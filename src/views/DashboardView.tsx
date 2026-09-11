@@ -116,6 +116,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectProperty,
   setCurrentTab
 }) => {
+  const isAdmin = user?.role === 'admin';
+  const isAgent = user?.role === 'agent' || user?.role === 'bailleur';
   type DashboardTab =
     | 'my_listings'
     | 'client_favorites'
@@ -133,7 +135,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     if (user?.role === 'client') {
       return user?.canPublish ? 'my_listings' : 'client_favorites';
     }
-    if (user?.role === 'agent' || user?.role === 'admin' || user?.role === 'bailleur') return 'my_listings';
+    if (isAgent || isAdmin) return 'my_listings';
     return 'client_favorites';
   });
 
@@ -141,13 +143,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   useEffect(() => {
     if (user?.role === 'client' && !user?.canPublish && (activeTab === 'my_listings' || activeTab.startsWith('admin_') || activeTab === 'agent_stats')) {
       setActiveTab('client_favorites');
-    } else if ((user?.role === 'agent' || user?.role === 'bailleur') && (activeTab.startsWith('client_') || activeTab.startsWith('admin_'))) {
+    } else if (isAgent && (activeTab.startsWith('client_') || activeTab.startsWith('admin_'))) {
       setActiveTab('my_listings');
     }
-  }, [user?.role, user?.canPublish]);
+  }, [user?.role, user?.canPublish, isAgent, isAdmin]);
 
   // Real-time inquiries
-  const [inquiries, setInquiries] = useState<InquiryMessage[]>(() => getUserInquiries(user));
+  const [inquiries, setInquiries] = useState<InquiryMessage[]>([]);
+
+  useEffect(() => {
+    void getUserInquiries(user).then(setInquiries);
+  }, [user]);
 
   // Real-time tracking data from activityService
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
@@ -176,9 +182,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Load activity & user tracking data
   const refreshData = (isManual: boolean = false) => {
     setIsRefreshing(true);
-    setRegisteredUsers(getRegisteredUsers());
-    setActiveSessions(getActiveSessions());
-    setVisitorLogs(getVisitorLogs());
+    if (isAdmin) {
+      setRegisteredUsers(getRegisteredUsers());
+      setActiveSessions(getActiveSessions());
+      setVisitorLogs(getVisitorLogs());
+    } else {
+      setRegisteredUsers([]);
+      setActiveSessions([]);
+      setVisitorLogs([]);
+    }
 
     if (isManual) {
       setRefreshToast(`Données actualisées avec succès à ${new Date().toLocaleTimeString('fr-FR')}`);
@@ -380,24 +392,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     { name: 'Panzi', visits: 41 }
   ];
 
-  const COLORS = ['#FF385C', '#222222', '#008489', '#FC642D', '#717171', '#8b5cf6'];
+  const COLORS = ['#FF385C', '#222222', '#008489', '#717171', '#b0b0b0', '#E00B41'];
 
   const myProperties = user?.role === 'admin'
     ? properties
-    : properties.filter((p) => p.ownerId === user?.uid || (Boolean(user?.email) && p.ownerEmail === user?.email));
+    : properties.filter((p) => p.ownerId === user?.uid);
 
   const favoriteProperties = properties.filter((p) => favoriteIds.includes(p.id));
 
   const clientInquiries = inquiries.filter((inq) =>
-    (user && inq.senderUid === user.uid) ||
-    (user?.email && inq.senderEmail && inq.senderEmail.toLowerCase() === user.email.toLowerCase()) ||
-    (user?.phone && inq.senderPhone && inq.senderPhone === user.phone)
+    user && inq.senderUid === user.uid
   );
 
   const agentInquiries = inquiries.filter((inq) =>
-    user?.role === 'admin' ||
-    (user && inq.propertyOwnerId === user.uid) ||
-    (user?.email && inq.propertyOwnerEmail && inq.propertyOwnerEmail.toLowerCase() === user.email.toLowerCase())
+    isAdmin || (user && inq.propertyOwnerId === user.uid)
   );
 
   // Filtered lists
@@ -700,7 +708,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
           </>
-        ) : user?.role === 'agent' ? (
+        ) : isAgent ? (
           <>
             <div className="bg-white dark:bg-[#1e1e1e] p-5 rounded-2xl border border-slate-200/80 dark:border-[#2e2e2e] shadow-xs flex items-center justify-between">
               <div>

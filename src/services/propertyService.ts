@@ -237,7 +237,7 @@ export const incrementPropertyViews = async (id: string): Promise<number> => {
   return newViews;
 };
 
-const TRASH_STORAGE_KEY = 'nyumbalink_trash_properties';
+const TRASH_STORAGE_KEY_PREFIX = 'nyumbalink_trash_properties_';
 const SIXTY_DAYS_MS = 60 * 24 * 60 * 60 * 1000;
 
 export interface TrashPropertyItem {
@@ -252,9 +252,12 @@ export const getDaysRemainingInTrash = (deletedAt: string): number => {
   return Math.max(0, remainingDays);
 };
 
-export const getTrashProperties = (): TrashPropertyItem[] => {
+const getTrashStorageKey = (userUid: string): string => `${TRASH_STORAGE_KEY_PREFIX}${userUid}`;
+
+export const getTrashProperties = (userUid: string): TrashPropertyItem[] => {
+  if (!userUid) return [];
   try {
-    const raw = localStorage.getItem(TRASH_STORAGE_KEY);
+    const raw = localStorage.getItem(getTrashStorageKey(userUid));
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
@@ -265,7 +268,7 @@ export const getTrashProperties = (): TrashPropertyItem[] => {
           return age < SIXTY_DAYS_MS;
         });
         if (valid.length !== parsed.length) {
-          saveTrashProperties(valid);
+          saveTrashProperties(userUid, valid);
         }
         return valid;
       }
@@ -276,22 +279,23 @@ export const getTrashProperties = (): TrashPropertyItem[] => {
   return [];
 };
 
-export const saveTrashProperties = (items: TrashPropertyItem[]): void => {
+export const saveTrashProperties = (userUid: string, items: TrashPropertyItem[]): void => {
+  if (!userUid) return;
   try {
-    localStorage.setItem(TRASH_STORAGE_KEY, JSON.stringify(items));
+    localStorage.setItem(getTrashStorageKey(userUid), JSON.stringify(items));
   } catch (e) {
     console.warn('Error saving trash properties:', e);
   }
 };
 
-export const deletePropertyFromStore = async (id: string): Promise<boolean> => {
+export const deletePropertyFromStore = async (id: string, userUid: string): Promise<boolean> => {
   const currentLocal = getLocalProperties();
   const target = currentLocal.find((p) => p.id === id);
 
   if (target) {
-    const currentTrash = getTrashProperties();
+    const currentTrash = getTrashProperties(userUid);
     const updatedTrash = [{ property: target, deletedAt: new Date().toISOString() }, ...currentTrash];
-    saveTrashProperties(updatedTrash);
+    saveTrashProperties(userUid, updatedTrash);
   }
 
   try {
@@ -306,8 +310,8 @@ export const deletePropertyFromStore = async (id: string): Promise<boolean> => {
   return true;
 };
 
-export const restorePropertyFromTrash = async (id: string): Promise<Property | null> => {
-  const currentTrash = getTrashProperties();
+export const restorePropertyFromTrash = async (id: string, userUid: string): Promise<Property | null> => {
+  const currentTrash = getTrashProperties(userUid);
   const itemToRestore = currentTrash.find((t) => t.property.id === id);
   if (!itemToRestore) return null;
 
@@ -322,14 +326,14 @@ export const restorePropertyFromTrash = async (id: string): Promise<Property | n
   saveLocalProperties([restoredProperty, ...currentLocal]);
 
   const updatedTrash = currentTrash.filter((t) => t.property.id !== id);
-  saveTrashProperties(updatedTrash);
+  saveTrashProperties(userUid, updatedTrash);
 
   return restoredProperty;
 };
 
-export const restoreMultipleFromTrash = async (ids: string[]): Promise<number> => {
+export const restoreMultipleFromTrash = async (ids: string[], userUid: string): Promise<number> => {
   const idSet = new Set(ids);
-  const currentTrash = getTrashProperties();
+  const currentTrash = getTrashProperties(userUid);
   const toRestore = currentTrash.filter((t) => idSet.has(t.property.id));
   if (toRestore.length === 0) return 0;
 
@@ -346,33 +350,35 @@ export const restoreMultipleFromTrash = async (ids: string[]): Promise<number> =
   saveLocalProperties([...restoredProperties, ...currentLocal]);
 
   const remainingTrash = currentTrash.filter((t) => !idSet.has(t.property.id));
-  saveTrashProperties(remainingTrash);
+  saveTrashProperties(userUid, remainingTrash);
 
   return toRestore.length;
 };
 
-export const permanentlyDeleteFromTrash = (id: string): boolean => {
-  const currentTrash = getTrashProperties();
+export const permanentlyDeleteFromTrash = (id: string, userUid: string): boolean => {
+  const currentTrash = getTrashProperties(userUid);
   const updated = currentTrash.filter((t) => t.property.id !== id);
-  saveTrashProperties(updated);
+  saveTrashProperties(userUid, updated);
   return true;
 };
 
-export const deleteMultiplePermanentlyFromTrash = (ids: string[]): number => {
+export const deleteMultiplePermanentlyFromTrash = (ids: string[], userUid: string): number => {
   const idSet = new Set(ids);
-  const currentTrash = getTrashProperties();
+  const currentTrash = getTrashProperties(userUid);
   const remaining = currentTrash.filter((t) => !idSet.has(t.property.id));
-  saveTrashProperties(remaining);
+  saveTrashProperties(userUid, remaining);
   return currentTrash.length - remaining.length;
 };
 
-export const emptyTrash = (): boolean => {
-  saveTrashProperties([]);
+export const emptyTrash = (userUid: string): boolean => {
+  saveTrashProperties(userUid, []);
   return true;
 };
 
 export const isPropertyActiveAndVisible = (property: Property): boolean => {
   if (!property) return false;
+
+  if (property.status === 'vendu') return false;
 
   if (
     property.ownerRole === 'admin' ||
@@ -483,6 +489,10 @@ export const filterPropertiesList = (
 
     return true;
   }).sort((a, b) => {
+    const availabilityOrder = (property: Property) => property.status === 'disponible' ? 0 : 1;
+    const availabilityDifference = availabilityOrder(a) - availabilityOrder(b);
+    if (availabilityDifference !== 0) return availabilityDifference;
+
     if (options.sortBy === 'price_asc') return a.price - b.price;
     if (options.sortBy === 'price_desc') return b.price - a.price;
     if (options.sortBy === 'popular') return (b.viewsCount || 0) - (a.viewsCount || 0);

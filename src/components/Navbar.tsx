@@ -115,7 +115,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     user?.fullname?.trim()
       ? user.fullname.trim().split(' ')[0]
       : user?.email?.split('@')[0] ||
-        (language === 'en' ? 'Profile' : 'Profil');
+        (language === 'en' ? 'Profile' : language === 'sw' ? 'Wasifu' : 'Profil');
 
   /*
    * Libellé du thème sans template literal.
@@ -131,13 +131,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#181818]/95 backdrop-blur-md border-b border-[#ebebeb] dark:border-[#2e2e2e] shadow-xs transition-colors">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between gap-2 h-16 min-w-0">
 
           {/* =====================================================
               GAUCHE : MENU + LOGO
           ===================================================== */}
 
-          <div className="flex items-center space-x-2 sm:space-x-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
             {onToggleSidebar && (
               <button
@@ -160,91 +160,10 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* =====================================================
-              CENTRE : NAVIGATION
-          ===================================================== */}
-
-          <nav className="hidden lg:flex items-center space-x-1.5">
-
-            {/* Accueil */}
-            <button
-              type="button"
-              onClick={() => setCurrentTab('home')}
-              className={
-                currentTab === 'home'
-                  ? 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-[#FF385C] text-white'
-                  : 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-              }
-            >
-              {language === 'en' ? 'Home' : 'Accueil'}
-            </button>
-
-            {/* Annonces */}
-            <button
-              type="button"
-              onClick={() => setCurrentTab('listings')}
-              className={
-                currentTab === 'listings'
-                  ? 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center space-x-1.5 bg-[#FF385C] text-white'
-                  : 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center space-x-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-              }
-            >
-              <span>
-                {language === 'en' ? 'Listings' : 'Annonces'}
-              </span>
-
-              {unreadNewPropertiesCount > 0 && (
-                <span className="bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full">
-                  {unreadNewPropertiesCount}
-                </span>
-              )}
-            </button>
-
-            {/* Carte */}
-            <button
-              type="button"
-              onClick={() => setCurrentTab('map')}
-              className={
-                currentTab === 'map'
-                  ? 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer bg-[#FF385C] text-white'
-                  : 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-              }
-            >
-              {language === 'en' ? 'Map' : 'Carte'}
-            </button>
-
-            {/* Favoris */}
-            <button
-              type="button"
-              onClick={() => setCurrentTab('favorites')}
-              className={
-                currentTab === 'favorites'
-                  ? 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center space-x-1.5 bg-[#FF385C] text-white'
-                  : 'px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center space-x-1.5 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
-              }
-            >
-              <span>
-                {language === 'en' ? 'Favorites' : 'Favoris'}
-              </span>
-
-              {favoritesCount > 0 && (
-                <span
-                  className={
-                    currentTab === 'favorites'
-                      ? 'text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-white text-[#FF385C]'
-                      : 'text-[9px] font-bold px-1.5 py-0.2 rounded-full bg-[#FF385C] text-white'
-                  }
-                >
-                  {favoritesCount}
-                </span>
-              )}
-            </button>
-          </nav>
-
-          {/* =====================================================
               DROITE : ACTIONS
           ===================================================== */}
 
-          <div className="flex items-center space-x-1.5 sm:space-x-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-auto">
 
             {/* Publier */}
             {(user?.role === 'agent' ||
@@ -260,7 +179,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>
                   {language === 'en'
                     ? 'Post Listing'
-                    : 'Publier'}
+                    : language === 'sw' ? 'Chapisha Tangazo' : 'Publier'}
                 </span>
               </button>
             )}
@@ -270,7 +189,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={openNewPropertiesModal}
-                className="relative p-2 rounded-xl bg-slate-100 dark:bg-[#252525] hover:bg-[#FF385C]/10 border border-slate-200 dark:border-[#333] text-[#222222] dark:text-[#f7f7f7] transition cursor-pointer"
+                className="relative p-2 rounded-xl bg-slate-100 dark:bg-[#252525] hover:bg-[#FF385C]/10 border border-slate-200 dark:border-[#333] text-[#222222] dark:text-[#f7f7f7] transition cursor-pointer max-[420px]:hidden"
                 title="Nouveaux Biens Publiés à Bukavu"
               >
                 <Bell className="w-4 h-4 text-[#FF385C]" />
@@ -356,7 +275,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     (previous) => !previous
                   )
                 }
-                className="flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#333] hover:bg-slate-100 dark:hover:bg-white/5 transition bg-white dark:bg-[#222] cursor-pointer shadow-xs"
+                className="flex items-center space-x-1 sm:space-x-2 px-1 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#333] hover:bg-slate-100 dark:hover:bg-white/5 transition bg-white dark:bg-[#222] cursor-pointer shadow-xs shrink-0"
                 title={
                   user
                     ? 'Mon Profil Utilisateur'
@@ -406,11 +325,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
 
                 <ChevronDown
-                  className={
+                  className={`hidden sm:block ${
                     userDropdownOpen
                       ? 'w-3.5 h-3.5 text-slate-600 dark:text-slate-400 transition-transform duration-200 rotate-180'
                       : 'w-3.5 h-3.5 text-slate-600 dark:text-slate-400 transition-transform duration-200'
-                  }
+                  }`}
                 />
               </button>
 
@@ -588,7 +507,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>
                           {language === 'en'
                             ? 'Sign Out'
-                            : 'Se Déconnecter'}
+                            : language === 'sw' ? 'Toka' : 'Se Déconnecter'}
                         </span>
                       </button>
 
@@ -608,13 +527,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <h4 className="text-xs font-black text-slate-900 dark:text-white">
                           {language === 'en'
                             ? 'Guest Account'
-                            : 'Compte Invité'}
+                            : language === 'sw' ? 'Akaunti ya Mgeni' : 'Compte Invité'}
                         </h4>
 
                         <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">
                           {language === 'en'
                             ? 'Connect to manage listings and save favorites.'
-                            : 'Connectez-vous pour gérer vos biens et retrouver vos favoris.'}
+                            : language === 'sw' ? 'Ingia ili udhibiti matangazo na uhifadhi vipendwa.' : 'Connectez-vous pour gérer vos biens et retrouver vos favoris.'}
                         </p>
 
                       </div>
@@ -632,7 +551,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span>
                           {language === 'en'
                             ? 'Sign In / Register'
-                            : "Se Connecter / S'inscrire"}
+                            : language === 'sw' ? 'Ingia / Jisajili' : "Se Connecter / S'inscrire"}
                         </span>
                       </button>
 

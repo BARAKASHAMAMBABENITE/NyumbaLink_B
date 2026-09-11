@@ -3,6 +3,7 @@ import { Search, Filter, RotateCcw, Compass } from 'lucide-react';
 import { FilterOptions, PropertyCategory, TransactionType, BukavuCommune } from '../types';
 import { BUKAVU_COMMUNES_WITH_NEIGHBORHOODS, BUKAVU_NEIGHBORHOODS } from '../data/initialProperties';
 import { formatFoundPropertiesCount } from '../utils/text';
+import { useLanguage } from '../context/LanguageContext';
 
 interface PropertyFilterProps {
   filterOptions: FilterOptions;
@@ -15,19 +16,21 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
   setFilterOptions,
   totalResults
 }) => {
+  const { language } = useLanguage();
+  const isSwahili = language === 'sw';
   const categories: { id: PropertyCategory | 'tous'; label: string }[] = [
-    { id: 'tous', label: 'Toutes les catégories' },
-    { id: 'maison', label: 'Maison' },
-    { id: 'parcelle', label: 'Parcelle' },
-    { id: 'appartement', label: 'Appartement' },
-    { id: 'villa', label: 'Villa' },
-    { id: 'commercial', label: 'Commercial' }
+    { id: 'tous', label: isSwahili ? 'Aina zote' : language === 'en' ? 'All categories' : 'Toutes les catégories' },
+    { id: 'maison', label: isSwahili ? 'Nyumba' : language === 'en' ? 'House' : 'Maison' },
+    { id: 'parcelle', label: isSwahili ? 'Kiwanja' : language === 'en' ? 'Plot' : 'Parcelle' },
+    { id: 'appartement', label: isSwahili ? 'Apartimenti' : language === 'en' ? 'Apartment' : 'Appartement' },
+    { id: 'villa', label: isSwahili ? 'Vila' : language === 'en' ? 'Villa' : 'Villa' },
+    { id: 'commercial', label: isSwahili ? 'Biashara' : language === 'en' ? 'Commercial' : 'Commercial' }
   ];
 
   const transactionTypes: { id: TransactionType | 'tous'; label: string }[] = [
-    { id: 'tous', label: 'Tous' },
-    { id: 'vente', label: 'À Vendre' },
-    { id: 'location', label: 'À Louer' }
+    { id: 'tous', label: isSwahili ? 'Zote' : language === 'en' ? 'All' : 'Tous' },
+    { id: 'vente', label: isSwahili ? 'Inauzwa' : language === 'en' ? 'For Sale' : 'À Vendre' },
+    { id: 'location', label: isSwahili ? 'Inapangishwa' : language === 'en' ? 'For Rent' : 'À Louer' }
   ];
 
   const popularFeatures = [
@@ -81,7 +84,7 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
           <Search className="w-5 h-5 absolute left-3.5 top-3 text-slate-500 dark:text-slate-400" />
           <input
             type="text"
-            placeholder="Rue, quartier à Bukavu (ex: Nguba, Muhungu, Panzi, La Botte...)"
+            placeholder={isSwahili ? 'Mtaa au jirani huko Bukavu...' : language === 'en' ? 'Street or neighborhood in Bukavu...' : 'Rue, quartier à Bukavu (ex: Nguba, Muhungu, Panzi, La Botte...)'}
             value={filterOptions.searchQuery}
             onChange={(e) =>
               setFilterOptions((prev) => ({ ...prev, searchQuery: e.target.value }))
@@ -116,7 +119,7 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
         <div>
           <label className="block text-[11px] font-extrabold text-slate-900 dark:text-white uppercase tracking-wider mb-1 flex items-center">
             <Compass className="w-3 h-3 text-[#FF385C] mr-1" />
-            Commune (Bukavu)
+            {isSwahili ? 'Manispaa (Bukavu)' : language === 'en' ? 'Commune (Bukavu)' : 'Commune (Bukavu)'}
           </label>
           <select
             value={filterOptions.commune || 'tous'}
@@ -129,17 +132,17 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
             }
             className="w-full px-2.5 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#FF385C]"
           >
-            <option value="tous">Toutes les Communes</option>
-            <option value="Ibanda">Commune d'Ibanda</option>
-            <option value="Kadutu">Commune de Kadutu</option>
-            <option value="Bagira">Commune de Bagira</option>
+            <option value="tous">{isSwahili ? 'Manispaa zote' : language === 'en' ? 'All Communes' : 'Toutes les Communes'}</option>
+            <option value="Ibanda">{isSwahili ? 'Manispaa ya Ibanda' : language === 'en' ? 'Ibanda Commune' : "Commune d'Ibanda"}</option>
+            <option value="Kadutu">{isSwahili ? 'Manispaa ya Kadutu' : language === 'en' ? 'Kadutu Commune' : "Commune de Kadutu"}</option>
+            <option value="Bagira">{isSwahili ? 'Manispaa ya Bagira' : language === 'en' ? 'Bagira Commune' : "Commune de Bagira"}</option>
           </select>
         </div>
 
         {/* Neighborhood Select */}
         <div>
           <label className="block text-[11px] font-extrabold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-            Quartier
+            {isSwahili ? 'Jirani' : language === 'en' ? 'Neighborhood' : 'Quartier'}
           </label>
           <select
             value={filterOptions.neighborhood}
@@ -148,7 +151,7 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
             }
             className="w-full px-2.5 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#FF385C]"
           >
-            <option value="tous">Tous les quartiers</option>
+            <option value="tous">{isSwahili ? 'Jirani zote' : language === 'en' ? 'All neighborhoods' : 'Tous les quartiers'}</option>
             {availableNeighborhoods.map((q) => (
               <option key={q} value={q}>
                 {q}
@@ -160,7 +163,7 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
         {/* Category Select */}
         <div>
           <label className="block text-[11px] font-extrabold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-            Catégorie
+            {isSwahili ? 'Aina' : language === 'en' ? 'Category' : 'Catégorie'}
           </label>
           <select
             value={filterOptions.category}
@@ -183,12 +186,12 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
         {/* Min / Max Price in USD */}
         <div>
           <label className="block text-[11px] font-extrabold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-            Budget Max ($ USD)
+            {isSwahili ? 'Bajeti ya juu ($ USD)' : language === 'en' ? 'Max Budget ($ USD)' : 'Budget Max ($ USD)'}
           </label>
           <div className="flex items-center space-x-1.5">
             <input
               type="number"
-              placeholder="Min $"
+              placeholder={isSwahili ? 'Chini $' : 'Min $'}
               value={filterOptions.minPrice}
               onChange={(e) =>
                 setFilterOptions((prev) => ({
@@ -201,7 +204,7 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
             <span className="text-slate-500 dark:text-slate-400 text-xs">-</span>
             <input
               type="number"
-              placeholder="Max $"
+              placeholder={isSwahili ? 'Juu $' : 'Max $'}
               value={filterOptions.maxPrice}
               onChange={(e) =>
                 setFilterOptions((prev) => ({
@@ -217,7 +220,7 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
         {/* Sort By */}
         <div>
           <label className="block text-[11px] font-extrabold text-slate-900 dark:text-white uppercase tracking-wider mb-1">
-            Trier par
+            {isSwahili ? 'Panga kwa' : language === 'en' ? 'Sort by' : 'Trier par'}
           </label>
           <select
             value={filterOptions.sortBy}
@@ -229,10 +232,10 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
             }
             className="w-full px-2.5 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-[#FF385C]"
           >
-            <option value="recent">Plus récentes</option>
-            <option value="price_asc">Prix croissant ($)</option>
-            <option value="price_desc">Prix décroissant ($)</option>
-            <option value="popular">Plus populaires (Vues)</option>
+            <option value="recent">{isSwahili ? 'Mpya zaidi' : language === 'en' ? 'Most recent' : 'Plus récentes'}</option>
+            <option value="price_asc">{isSwahili ? 'Bei inayopanda ($)' : language === 'en' ? 'Price ascending ($)' : 'Prix croissant ($)'}</option>
+            <option value="price_desc">{isSwahili ? 'Bei inayoshuka ($)' : language === 'en' ? 'Price descending ($)' : 'Prix décroissant ($)'}</option>
+            <option value="popular">{isSwahili ? 'Maarufu zaidi (Mionekano)' : language === 'en' ? 'Most popular (Views)' : 'Plus populaires (Vues)'}</option>
           </select>
         </div>
       </div>
@@ -242,7 +245,7 @@ export const PropertyFilter: React.FC<PropertyFilterProps> = ({
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-xs font-bold text-slate-700 dark:text-slate-300 mr-2 flex items-center">
             <Filter className="w-3.5 h-3.5 mr-1 text-[#FF385C]" />
-            Équipements :
+            {isSwahili ? 'Vifaa :' : language === 'en' ? 'Features:' : 'Équipements :'}
           </span>
           {popularFeatures.map((feat) => {
             const isSelected = filterOptions.features.includes(feat);

@@ -52,7 +52,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       case 'appartement':
         return 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800';
       case 'parcelle':
-        return 'bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-800';
+        return 'bg-slate-50 text-slate-900 dark:bg-white/10 dark:text-slate-100 border-slate-300 dark:border-white/10';
       default:
         return 'bg-slate-100 text-slate-900 border-slate-300 dark:bg-slate-800 dark:text-slate-200';
     }
@@ -67,7 +67,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     >
       {/* Top Badges (Verification, Status & VIP) */}
       <div className="absolute top-3 left-3 z-20 flex flex-wrap gap-1.5 items-center">
-        {isOccupied && (
+        {isOccupied && property.status !== 'loue' && (
           <div className="bg-rose-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-sm flex items-center space-x-1 uppercase tracking-wider">
             <AlertOctagon className="w-3 h-3" />
             <span>{property.status === 'loue' ? 'Déjà Loué' : 'Déjà Vendu'}</span>

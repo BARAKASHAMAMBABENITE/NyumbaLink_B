@@ -93,7 +93,7 @@ export const UserAvatar: React.FC<UserAvatarProps> = ({
   const getRoleBg = () => {
     if (role === 'admin') return 'bg-[#222222] text-[#FF385C] border border-[#FF385C]/30';
     if (role === 'agent') return 'bg-gradient-to-br from-[#FF385C] to-[#E00B41] text-white';
-    if (role === 'bailleur') return 'bg-gradient-to-br from-amber-500 to-amber-700 text-white';
+    if (role === 'bailleur') return 'bg-gradient-to-br from-[#FF385C] to-[#E00B41] text-white';
     return 'bg-[#FF385C] text-white';
   };
 

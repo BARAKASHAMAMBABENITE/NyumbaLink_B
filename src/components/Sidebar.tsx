@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Home,
   Building2,
@@ -58,7 +58,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onLogout
 }) => {
   const { language } = useLanguage();
-  const contractAlertsCount = getContractNotifications(user).totalAlerts;
+  const [contractAlertsCount, setContractAlertsCount] = useState(0);
+
+  useEffect(() => {
+    void getContractNotifications(user).then((summary) => setContractAlertsCount(summary.unreadAlerts));
+  }, [user]);
 
   const handleNavClick = (tabId: string) => {
     setCurrentTab(tabId);
@@ -71,31 +75,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const getDashboardInfo = () => {
     if (!user) {
       return {
-        label: language === 'en' ? 'Dashboard' : 'Tableau de Bord',
-        subtext: language === 'en' ? 'Sign in to access' : 'Connexion requise',
+        label: language === 'en' ? 'Dashboard' : language === 'sw' ? 'Dashibodi' : 'Tableau de Bord',
+        subtext: language === 'en' ? 'Sign in to access' : language === 'sw' ? 'Ingia ili kufikia' : 'Connexion requise',
         icon: LayoutDashboard,
         badge: null
       };
     }
     if (user.role === 'admin') {
       return {
-        label: language === 'en' ? 'Admin Dashboard' : 'Tableau Admin',
-        subtext: language === 'en' ? 'System & Users' : 'Gestion globale & Utilisateurs',
+        label: language === 'en' ? 'Admin Dashboard' : language === 'sw' ? 'Dashibodi ya Msimamizi' : 'Tableau Admin',
+        subtext: language === 'en' ? 'System & Users' : language === 'sw' ? 'Mfumo na Watumiaji' : 'Gestion globale & Utilisateurs',
         icon: ShieldCheck,
         badge: null
       };
     }
     if (user.role === 'agent') {
       return {
-        label: language === 'en' ? 'Agent Dashboard' : 'Tableau Agent',
-        subtext: language === 'en' ? 'My properties & stats' : 'Mes annonces & statistiques',
+        label: language === 'en' ? 'Agent Dashboard' : language === 'sw' ? 'Dashibodi ya Wakala' : 'Tableau Agent',
+        subtext: language === 'en' ? 'My properties & stats' : language === 'sw' ? 'Nyumba na takwimu zangu' : 'Mes annonces & statistiques',
         icon: Crown,
         badge: null
       };
     }
     return {
-      label: language === 'en' ? 'Client Dashboard' : 'Mon Espace Client',
-      subtext: language === 'en' ? 'Favorites & inquiries' : 'Favoris & demandes de visites',
+      label: language === 'en' ? 'Client Dashboard' : language === 'sw' ? 'Dashibodi ya Mteja' : 'Mon Espace Client',
+      subtext: language === 'en' ? 'Favorites & inquiries' : language === 'sw' ? 'Vipendwa na maombi' : 'Favoris & demandes de visites',
       icon: User,
       badge: null
     };
@@ -155,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <Home className={`w-4 h-4 ${currentTab === 'home' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Home' : 'Accueil'}</span>
+              <span>{language === 'en' ? 'Home' : language === 'sw' ? 'Nyumbani' : 'Accueil'}</span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'home' ? 'text-white' : ''}`} />
           </button>
@@ -172,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <Building2 className={`w-4 h-4 ${currentTab === 'listings' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Listings' : 'Toutes les Annonces'}</span>
+              <span>{language === 'en' ? 'Listings' : language === 'sw' ? 'Matangazo' : 'Toutes les Annonces'}</span>
             </div>
             {unreadNewPropertiesCount > 0 ? (
               <span className="flex items-center space-x-0.5 bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
@@ -196,7 +200,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <MapPin className={`w-4 h-4 ${currentTab === 'map' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Interactive Map' : 'Carte Interactive'}</span>
+              <span>{language === 'en' ? 'Interactive Map' : language === 'sw' ? 'Ramani ya Maingiliano' : 'Carte Interactive'}</span>
             </div>
             <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'map' ? 'text-white' : ''}`} />
           </button>
@@ -213,7 +217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <Heart className={`w-4 h-4 ${currentTab === 'favorites' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Favorites' : 'Mes Favoris'}</span>
+              <span>{language === 'en' ? 'Favorites' : language === 'sw' ? 'Vipendwa' : 'Mes Favoris'}</span>
             </div>
             {favoritesCount > 0 ? (
               <span
@@ -242,7 +246,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <FileText className={`w-4 h-4 ${currentTab === 'contracts' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Rental Contracts' : 'Contrats de Location'}</span>
+              <span>{language === 'en' ? 'Rental Contracts' : language === 'sw' ? 'Mikataba ya Upangishaji' : 'Contrats de Location'}</span>
             </div>
             {contractAlertsCount > 0 ? (
               <span className="flex items-center space-x-1 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse shadow-xs">

@@ -29,7 +29,7 @@
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--bg-canvas);
     color: var(--airbnb-hof);
-    letter-spacing: -0.015em;
+    letter-spacing: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.25s ease, color 0.25s ease;
@@ -77,7 +77,7 @@
 
   h1, h2, h3, h4, h5, h6, .font-serif-display {
     font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", Arial, sans-serif;
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
   }
 }
 
@@ -104,6 +104,30 @@ input:active, textarea:active, select:active {
 .dark input:active, .dark textarea:active, .dark select:active {
   color: #f8fafc !important;
   -webkit-text-fill-color: #f8fafc !important;
+}
+
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+[class*="bg-amber-"], [class*="bg-orange-"] {
+  background-color: #FF385C !important;
+}
+[class*="text-amber-"], [class*="text-orange-"] {
+  color: #FF385C !important;
+}
+[class*="border-amber-"], [class*="border-orange-"] {
+  border-color: #FF385C !important;
+}
+[class*="bg-stone-"] {
+  background-color: #222222 !important;
+}
+[class*="text-stone-"] {
+  color: #717171 !important;
+}
+[class*="border-stone-"] {
+  border-color: #2e2e2e !important;
 }
 
 /* Custom Leaflet Map Pin Styles */

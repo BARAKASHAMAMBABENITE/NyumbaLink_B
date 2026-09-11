@@ -46,7 +46,39 @@ service cloud.firestore {
     // Inquiries: any user (even visitor) can submit an inquiry, participants and admin can read
     match /inquiries/{inquiryId} {
       allow create: if true;
-      allow read, update, delete: if isSignedIn();
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.senderUid == request.auth.uid ||
+        resource.data.propertyOwnerId == request.auth.uid
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.propertyOwnerId == request.auth.uid ||
+        resource.data.senderUid == request.auth.uid
+      );
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.senderUid == request.auth.uid
+      );
+    }
+
+    // Rental contracts: only the tenant, landlord or administrator can access them.
+    match /contracts/{contractId} {
+      allow create: if isSignedIn() && request.resource.data.tenantId == request.auth.uid;
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.landlordId == request.auth.uid
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.landlordId == request.auth.uid
+      );
+      allow delete: if isSignedIn() && (
+        isAdmin() ||
+        resource.data.tenantId == request.auth.uid ||
+        resource.data.landlordId == request.auth.uid
+      );
     }
 
     // Activity & Visitor Logs & Sessions for platform analytics

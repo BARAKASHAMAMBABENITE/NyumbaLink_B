@@ -72,8 +72,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [feedbackSent, setFeedbackSent] = useState(false);
 
   useEffect(() => {
-    setTrashItems(getTrashProperties());
-  }, []);
+    setTrashItems(user ? getTrashProperties(user.uid) : []);
+    setSelectedTrashIds([]);
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -120,9 +121,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleRestore = async (id: string) => {
-    const restored = await restorePropertyFromTrash(id);
+    if (!user) return;
+    const restored = await restorePropertyFromTrash(id, user.uid);
     if (restored) {
-      setTrashItems(getTrashProperties());
+      setTrashItems(getTrashProperties(user.uid));
       setSelectedTrashIds((prev) => prev.filter((itemId) => itemId !== id));
       setTrashActionNotice(
         language === 'en'
@@ -135,8 +137,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleBatchRestore = async () => {
     if (selectedTrashIds.length === 0) return;
-    const count = await restoreMultipleFromTrash(selectedTrashIds);
-    setTrashItems(getTrashProperties());
+    if (!user) return;
+    const count = await restoreMultipleFromTrash(selectedTrashIds, user.uid);
+    setTrashItems(getTrashProperties(user.uid));
     setSelectedTrashIds([]);
     setTrashActionNotice(
       language === 'en'
@@ -148,8 +151,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const handleBatchPermanentDelete = () => {
     if (selectedTrashIds.length === 0) return;
-    const count = deleteMultiplePermanentlyFromTrash(selectedTrashIds);
-    setTrashItems(getTrashProperties());
+    if (!user) return;
+    const count = deleteMultiplePermanentlyFromTrash(selectedTrashIds, user.uid);
+    setTrashItems(getTrashProperties(user.uid));
     setSelectedTrashIds([]);
     setTrashActionNotice(
       language === 'en'
@@ -160,8 +164,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handlePermanentDelete = (id: string, _title: string) => {
-    permanentlyDeleteFromTrash(id);
-    setTrashItems(getTrashProperties());
+    if (!user) return;
+    permanentlyDeleteFromTrash(id, user.uid);
+    setTrashItems(getTrashProperties(user.uid));
     setSelectedTrashIds((prev) => prev.filter((itemId) => itemId !== id));
     setTrashActionNotice(
       language === 'en' ? 'Listing permanently deleted.' : 'Annonce supprimée définitivement.'
@@ -170,7 +175,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const handleEmptyAllTrash = () => {
-    emptyTrash();
+    if (!user) return;
+    emptyTrash(user.uid);
     setTrashItems([]);
     setSelectedTrashIds([]);
     setTrashActionNotice(
@@ -226,9 +232,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     },
     {
       id: 'language',
-      label: language === 'en' ? 'Display Language' : "Langue d'Affichage",
+      label: language === 'en' ? 'Display Language' : language === 'sw' ? 'Lugha ya Maonyesho' : "Langue d'Affichage",
       icon: Globe,
-      desc: language === 'en' ? 'English / Français' : 'Français / English'
+      desc: language === 'en' ? 'English / Français / Kiswahili' : language === 'sw' ? 'Kiswahili / Français / English' : 'Français / English / Kiswahili'
     }
   ];
 
@@ -938,12 +944,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  {language === 'en' ? 'Application Display Language' : "Langue d'Affichage de l'Application"}
+                  {language === 'en' ? 'Application Display Language' : language === 'sw' ? 'Lugha ya Maonyesho ya Programu' : "Langue d'Affichage de l'Application"}
                 </h2>
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                   {language === 'en'
                     ? 'Choose your preferred language to browse NyumbaLink'
-                    : 'Choisissez votre langue préférée pour naviguer sur NyumbaLink'}
+                    : language === 'sw' ? 'Chagua lugha unayopendelea kutumia NyumbaLink' : 'Choisissez votre langue préférée pour naviguer sur NyumbaLink'}
                 </p>
               </div>
 
@@ -978,6 +984,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <span className="text-xs opacity-75">English interface mode</span>
                   </div>
                   {language === 'en' && <CheckCircle2 className="w-5 h-5 text-[#FF385C]" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLanguage('sw')}
+                  className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                    language === 'sw'
+                      ? 'bg-[#FF385C]/10 border-[#FF385C] text-[#FF385C]'
+                      : 'bg-slate-50 dark:bg-[#252525] border-slate-200 dark:border-[#333] text-slate-800 dark:text-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <span className="text-sm font-black block">Kiswahili (SW)</span>
+                    <span className="text-xs opacity-75">Lugha ya Kiswahili</span>
+                  </div>
+                  {language === 'sw' && <CheckCircle2 className="w-5 h-5 text-[#FF385C]" />}
                 </button>
               </div>
             </div>

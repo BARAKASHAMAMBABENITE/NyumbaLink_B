@@ -57,7 +57,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({
       propertyOwnerPhone: property.ownerPhone,
       propertyOwnerEmail: property.ownerEmail,
       senderUid: user?.uid,
-      senderName: senderName || user?.fullname || 'Client WhatsApp',
+      senderName: senderName || user?.fullname || 'Client',
       senderPhone: senderPhone || user?.phone || '+243 986 760 178',
       senderEmail: senderEmail || user?.email || undefined,
       message: fullMessageWithVisit,

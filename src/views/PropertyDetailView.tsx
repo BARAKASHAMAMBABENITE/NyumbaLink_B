@@ -271,6 +271,10 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                     <MapPin className="w-3.5 h-3.5 text-[#717171] shrink-0" />
                     <span>{property.address}</span>
                   </span>
+                  <span className="flex items-center space-x-1 font-semibold">
+                    <Eye className="w-3.5 h-3.5 text-[#FF385C] shrink-0" />
+                    <span>{property.viewsCount || 0} vue(s)</span>
+                  </span>
                 </div>
               </div>
 
