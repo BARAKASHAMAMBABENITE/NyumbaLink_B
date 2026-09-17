@@ -61,23 +61,31 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
   const [replyText, setReplyText] = useState<string>('');
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
 
-  const loadData = () => {
-    const loaded = getUserInquiries(user?.uid, user?.role);
-    setInquiries(loaded);
+  const loadData = async () => {
+    if (!user) {
+      setInquiries([]);
+      setContractAlerts({ pending: [], confirmed: [], expired: [], expiringSoon: [], totalAlerts: 0 });
+      return;
+    }
 
-    const alerts = getContractNotifications(user?.uid, user?.role);
-    setContractAlerts(alerts);
+    const [loaded, alerts] = await Promise.all([
+      getUserInquiries(user),
+      getContractNotifications(user)
+    ]);
+
+    setInquiries(Array.isArray(loaded) ? loaded : []);
+    setContractAlerts(alerts ?? { pending: [], confirmed: [], expired: [], expiringSoon: [], totalAlerts: 0 });
   };
 
   useEffect(() => {
     if (isOpen) {
-      loadData();
+      void loadData();
     }
   }, [isOpen, user]);
 
   if (!isOpen) return null;
 
-  const unreadMessagesCount = inquiries.filter((i) => !i.isRead).length;
+  const unreadMessagesCount = Array.isArray(inquiries) ? inquiries.filter((i) => !i.isRead).length : 0;
   const totalContractAlerts = contractAlerts.totalAlerts;
 
   const filteredInquiries = inquiries.filter((item) => {
@@ -86,31 +94,32 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
     return true;
   });
 
-  const handleMarkAsRead = (id: string) => {
-    markInquiryAsRead(id);
-    loadData();
+  const handleMarkAsRead = async (id: string) => {
+    if (!user?.uid) return;
+    await markInquiryAsRead(id, user.uid);
+    await loadData();
   };
 
   // Marque tous les messages non lus comme lus sans nécessiter de nouvel export
-  const handleMarkAllMessagesAsRead = () => {
+  const handleMarkAllMessagesAsRead = async () => {
+    if (!user?.uid) return;
     const unreadItems = inquiries.filter((i) => !i.isRead);
     if (unreadItems.length === 0) return;
-    unreadItems.forEach((item) => {
-      markInquiryAsRead(item.id);
-    });
-    loadData();
+    await Promise.all(unreadItems.map((item) => markInquiryAsRead(item.id, user.uid)));
+    await loadData();
   };
 
-  const handleDelete = (id: string) => {
-    deleteInquiry(id);
-    loadData();
+  const handleDelete = async (id: string) => {
+    if (!user?.uid) return;
+    await deleteInquiry(id, user.uid);
+    await loadData();
   };
 
-  const handleSendReply = (id: string) => {
+  const handleSendReply = async (id: string) => {
     if (!replyText.trim()) return;
     const authorName = user?.fullname || (user?.role === 'agent' ? 'Agent NyumbaLink' : 'Support NyumbaLink');
-    replyToInquiry(id, replyText, authorName, user?.uid);
-    loadData();
+    await replyToInquiry(id, replyText, authorName, user?.uid);
+    await loadData();
     setReplyingToId(null);
     setReplyText('');
   };

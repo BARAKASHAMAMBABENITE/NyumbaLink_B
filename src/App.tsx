@@ -488,6 +488,7 @@ export default function App() {
         unreadMessagesCount={unreadMessagesCount}
         openAddPropertyModal={handleOpenAddPropertyModal}
         openAuthModal={() => handleOpenAuthModal()}
+        openMessagesModal={handleOpenMessagesModal}
         openOnboarding={() => setOnboardingOpen(true)}
         openPartnerModal={() => setPartnerModalOpen(true)}
         openPartnerFurnitureModal={() => setPartnerFurnitureModalOpen(true)}
