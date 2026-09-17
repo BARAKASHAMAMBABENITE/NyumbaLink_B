@@ -198,10 +198,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       </div>
 
       {/* Card Content Body */}
-      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-4 sm:p-5 flex-1 min-w-0 flex flex-col justify-between space-y-3">
         <div className="space-y-2">
           {/* Price & Neighborhood */}
-          <div className="flex items-baseline justify-between gap-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div className="flex items-baseline space-x-1">
               <span
                 className={`text-xl sm:text-2xl font-bold tracking-tight ${
@@ -225,11 +225,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                   onSelectNeighborhood(property.neighborhood);
                 }
               }}
-              className="text-[11px] font-medium text-[#FF385C] bg-[#FF385C]/10 hover:bg-[#FF385C]/15 border border-[#FF385C]/20 px-2.5 py-0.5 rounded-full flex items-center space-x-1 transition cursor-pointer whitespace-nowrap"
+              className="max-w-full text-[11px] font-medium text-[#FF385C] bg-[#FF385C]/10 hover:bg-[#FF385C]/15 border border-[#FF385C]/20 px-2.5 py-0.5 rounded-full flex items-center space-x-1 transition cursor-pointer min-w-0"
               title={`Filtrer par quartier ${property.neighborhood}`}
             >
               <MapPin className="w-3 h-3 text-[#FF385C]" />
-              <span>{property.neighborhood}</span>
+              <span className="truncate">{property.neighborhood}</span>
             </button>
           </div>
 
@@ -258,8 +258,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
         </div>
 
         {/* Specifications row (Bedrooms, Bathrooms, Surface only for parcelle) */}
-        <div className="pt-2 border-t border-slate-100 dark:border-[#282828] flex items-center justify-between text-xs font-semibold text-slate-700 dark:text-slate-300">
-          <div className="flex items-center space-x-3">
+        <div className="pt-2 border-t border-slate-100 dark:border-[#282828] flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
             {property.bedrooms !== undefined && property.category !== 'parcelle' && (
               <div
                 className="flex items-center space-x-1"
@@ -290,7 +290,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
           </div>
 
           {/* Action trigger */}
-          <div className="flex items-center space-x-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 ml-auto">
             {!isOccupied && (
               <button
                 type="button"

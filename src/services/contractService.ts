@@ -221,7 +221,7 @@ export const getContractNotifications = async (user: any): Promise<ContractNotif
         contract,
         role,
         message: role === 'landlord'
-          ? `Le locataire ${contract.tenantName} attend votre confirmation pour ce contrat.`
+          ? `Vous avez reçu une demande de contrat pour le bien ${contract.propertyTitle} de la part du client ${contract.tenantName}.`
           : 'Votre demande de contrat est en attente de confirmation par le propriétaire.',
         isRead: readAlerts.has(`pending:${contract.id}`)
       });

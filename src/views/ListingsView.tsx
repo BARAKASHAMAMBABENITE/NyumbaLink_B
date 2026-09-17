@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   LayoutGrid,
   List as ListIcon,
@@ -36,7 +36,21 @@ export const ListingsView: React.FC<ListingsViewProps> = ({
   setFilterOptions,
   onSelectNeighborhood
 }) => {
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'split'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'split'>(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
+      ? 'list'
+      : 'grid'
+  );
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 639px)');
+    const enforceMobileList = () => {
+      if (mediaQuery.matches) setViewMode('list');
+    };
+    enforceMobileList();
+    mediaQuery.addEventListener('change', enforceMobileList);
+    return () => mediaQuery.removeEventListener('change', enforceMobileList);
+  }, []);
 
   const filteredProperties = filterPropertiesList(properties, filterOptions);
 
@@ -58,7 +72,7 @@ export const ListingsView: React.FC<ListingsViewProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('grid')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`hidden sm:flex px-3 py-1.5 rounded-lg text-xs font-bold transition items-center space-x-1.5 cursor-pointer ${
               viewMode === 'grid'
                 ? 'bg-[#FF385C] text-white shadow-xs'
                 : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -84,7 +98,7 @@ export const ListingsView: React.FC<ListingsViewProps> = ({
           <button
             type="button"
             onClick={() => setViewMode('split')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer ${
+            className={`hidden sm:flex px-3 py-1.5 rounded-lg text-xs font-bold transition items-center space-x-1.5 cursor-pointer ${
               viewMode === 'split'
                 ? 'bg-[#FF385C] text-white shadow-xs'
                 : 'text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
@@ -147,7 +161,7 @@ export const ListingsView: React.FC<ListingsViewProps> = ({
           </div>
 
           {/* Cards Column */}
-          <div className="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="lg:col-span-6 grid grid-cols-1 gap-4">
             {filteredProperties.map((prop) => (
               <PropertyCard
                 key={prop.id}
@@ -167,7 +181,7 @@ export const ListingsView: React.FC<ListingsViewProps> = ({
           className={`grid gap-6 ${
             viewMode === 'list'
               ? 'grid-cols-1'
-              : 'grid-cols-2 sm:grid-cols-2 lg:grid-cols-3'
+              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
           }`}
         >
           {filteredProperties.map((prop) => (

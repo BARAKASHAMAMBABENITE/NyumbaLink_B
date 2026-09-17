@@ -65,6 +65,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 }) => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [routeInfo, setRouteInfo] = useState<string | null>(null);
+  const [routeUrl, setRouteUrl] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Strict RBAC: Admin can manage all properties, Agent can only manage THEIR OWN property
@@ -90,30 +91,45 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
     }
   };
 
-  // Calculate distance from Place Mulamba, Bukavu (-2.5020, 28.8630)
+  // Use the visitor's real position before calculating the itinerary.
   const calculateRouteFromCenter = () => {
-    const lat1 = -2.5020;
-    const lon1 = 28.8630;
-    const lat2 = property.latitude;
-    const lon2 = property.longitude;
+    if (!navigator.geolocation) {
+      setRouteInfo('La localisation GPS n’est pas disponible sur cet appareil.');
+      setRouteUrl(null);
+      return;
+    }
 
-    // Approx distance in KM
-    const R = 6371;
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const dist = (R * c).toFixed(1);
+    setRouteInfo('Recherche de votre position GPS...');
+    setRouteUrl(null);
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const lat1 = coords.latitude;
+        const lon1 = coords.longitude;
+        const lat2 = property.latitude;
+        const lon2 = property.longitude;
+        const earthRadiusKm = 6371;
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLon = ((lon2 - lon1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const distanceKm = earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceDisplay = distanceKm.toFixed(1);
+        const estimatedMinutes = Math.max(1, Math.round(distanceKm * 4 + 5));
 
-    const estMinutes = Math.round(Number(dist) * 4 + 5);
-
-    setRouteInfo(
-      `Trajet depuis Place Mulamba (Centre-Ville Bukavu) : environ ${dist} km (${estMinutes} min en véhicule)`
+        setRouteInfo(
+          `Depuis votre position : environ ${distanceDisplay} km du bien (${estimatedMinutes} min en véhicule).`
+        );
+        setRouteUrl(
+          `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(`${lat1},${lon1}`)}&destination=${encodeURIComponent(`${lat2},${lon2}`)}&travelmode=driving`
+        );
+      },
+      () => {
+        setRouteInfo('Autorisez la localisation GPS pour calculer l’itinéraire depuis votre position.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
   };
 
@@ -367,9 +383,19 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
             </div>
 
             {routeInfo && (
-              <div className="bg-[#FF385C]/10 border border-[#FF385C]/30 p-3 rounded-xl text-xs font-bold text-[#FF385C] flex items-center space-x-2 animate-in fade-in">
+              <div className="bg-[#FF385C]/10 border border-[#FF385C]/30 p-3 rounded-xl text-xs font-bold text-[#FF385C] flex flex-wrap items-center gap-2 animate-in fade-in">
                 <Navigation className="w-4 h-4 text-[#FF385C] shrink-0" />
-                <span>{routeInfo}</span>
+                <span className="flex-1 min-w-[180px]">{routeInfo}</span>
+                {routeUrl && (
+                  <a
+                    href={routeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="shrink-0 bg-[#FF385C] text-white px-3 py-1.5 rounded-lg hover:bg-[#E00B41] transition"
+                  >
+                    Ouvrir l’itinéraire
+                  </a>
+                )}
               </div>
             )}
 

@@ -56,6 +56,34 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from './config/firebase';
 
+const normalizeUserProfile = (profile: Partial<UserProfile> | null | undefined, fallbackUid = ''): UserProfile => {
+  const email = typeof profile?.email === 'string' ? profile.email : '';
+  const fullname = typeof profile?.fullname === 'string' && profile.fullname.trim()
+    ? profile.fullname.trim()
+    : email.split('@')[0] || 'Utilisateur NyumbaLink';
+
+  return {
+    uid: typeof profile?.uid === 'string' && profile.uid ? profile.uid : fallbackUid,
+    fullname,
+    email,
+    role: profile?.role || 'client',
+    phone: typeof profile?.phone === 'string' ? profile.phone : undefined,
+    agencyName: typeof profile?.agencyName === 'string' ? profile.agencyName : undefined,
+    avatarUrl: typeof profile?.avatarUrl === 'string' ? profile.avatarUrl : undefined,
+    createdAt: typeof profile?.createdAt === 'string' ? profile.createdAt : new Date().toISOString(),
+    subscriptionPlan: profile?.subscriptionPlan,
+    subscriptionAmount: profile?.subscriptionAmount,
+    subscriptionStartedAt: profile?.subscriptionStartedAt,
+    agentExpiresAt: profile?.agentExpiresAt,
+    isVerifiedAgent: profile?.isVerifiedAgent,
+    verifiedDate: profile?.verifiedDate,
+    canPublish: profile?.canPublish,
+    isPartner: profile?.isPartner,
+    partnerCategory: profile?.partnerCategory,
+    partnerApprovedDate: profile?.partnerApprovedDate
+  };
+};
+
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('home');
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -69,7 +97,7 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && parsed.email && !parsed.email.includes('demo') && !parsed.email.includes('bahati') && !parsed.email.includes('mufasa')) {
-          return parsed;
+          return normalizeUserProfile(parsed, parsed.uid);
         }
       }
     } catch (e) {
@@ -171,9 +199,8 @@ export default function App() {
 
   // New properties alert count (properties created after lastSeenPropertiesTime)
   const unreadNewPropertiesCount = properties.filter((p) => {
-    if (!lastSeenPropertiesTime) return false;
     const propTime = new Date(p.createdAt || 0).getTime();
-    return propTime > lastSeenPropertiesTime;
+    return propTime > (lastSeenPropertiesTime || 0);
   }).length;
 
   const handleMarkAllPropertiesViewed = () => {
@@ -268,7 +295,7 @@ export default function App() {
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
-            const data = userDoc.data() as UserProfile;
+            const data = normalizeUserProfile(userDoc.data() as Partial<UserProfile>, firebaseUser.uid);
             if (firebaseUser.photoURL && !data.avatarUrl) {
               data.avatarUrl = firebaseUser.photoURL;
             }
@@ -279,7 +306,7 @@ export default function App() {
           console.warn('Error fetching Firestore user profile on auth state change:', err);
         }
 
-        setUser({
+        setUser(normalizeUserProfile({
           uid: firebaseUser.uid,
           fullname: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Utilisateur NyumbaLink',
           email: firebaseUser.email || '',
@@ -290,7 +317,7 @@ export default function App() {
               : 'client',
           avatarUrl: firebaseUser.photoURL || undefined,
           createdAt: new Date().toISOString()
-        });
+        }, firebaseUser.uid));
       }
     });
 

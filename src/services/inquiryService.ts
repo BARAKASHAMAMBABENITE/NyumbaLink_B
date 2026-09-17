@@ -2,7 +2,6 @@ import { UserProfile } from '../types';
 import { notifyNewInquiryReceived, notifyInquiryReply } from './notificationService';
 import {
   collection,
-  deleteDoc,
   doc,
   getDocs,
   query,
@@ -32,6 +31,8 @@ export interface InquiryMessage {
   message: string;
   createdAt: string;
   isRead: boolean;
+  readBy?: string[];
+  deletedFor?: string[];
   channel: 'whatsapp' | 'direct' | 'call';
   contractId?: string;
   contractStatus?: 'pending' | 'active' | 'terminated';
@@ -47,6 +48,12 @@ export interface InquiryMessage {
 
 const INQUIRIES_STORAGE_KEY = 'nyumbalink_inquiries_v3';
 const INQUIRIES_COLLECTION = 'inquiries';
+
+const getInquiryVisibility = (inquiry: InquiryMessage, userUid: string): InquiryMessage => ({
+  ...inquiry,
+  isRead: Boolean(inquiry.readBy?.includes(userUid)),
+  deletedFor: inquiry.deletedFor || []
+});
 
 const DEFAULT_INQUIRIES: InquiryMessage[] = [
   {
@@ -170,7 +177,9 @@ export const getUserInquiries = async (user: UserProfile | null, includeContract
   try {
     if (isAdmin) {
       const allInquiries = await getInquiries();
-      return includeContractInquiries ? allInquiries : allInquiries.filter((item) => !item.contractId);
+        return (includeContractInquiries ? allInquiries : allInquiries.filter((item) => !item.contractId))
+          .filter((item) => !item.deletedFor?.includes(user.uid))
+          .map((item) => getInquiryVisibility(item, user.uid));
     }
 
     const senderQuery = query(collection(db, INQUIRIES_COLLECTION), where('senderUid', '==', user.uid));
@@ -190,7 +199,9 @@ export const getUserInquiries = async (user: UserProfile | null, includeContract
           return true;
         })
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      return userInquiries;
+      return userInquiries
+        .filter((item) => !item.deletedFor?.includes(user.uid))
+        .map((item) => getInquiryVisibility(item, user.uid));
     }
   } catch (err) {
     console.warn('Firestore user inquiries fetch failed, using local cache:', err);
@@ -218,7 +229,7 @@ export const getUserInquiries = async (user: UserProfile | null, includeContract
         (userPhone && inq.senderPhone.replace(/\D/g, '') === userPhone);
 
       return isOwner || isSender;
-    });
+    }).filter((inq) => !inq.deletedFor?.includes(userUid)).map((inq) => getInquiryVisibility(inq, userUid));
   }
 
   // Regular client: ONLY sees inquiries they initiated/sent and replies received from agent/admin
@@ -230,7 +241,7 @@ export const getUserInquiries = async (user: UserProfile | null, includeContract
     const matchesEmail = Boolean(userEmail && inq.senderEmail && inq.senderEmail.toLowerCase().trim() === userEmail);
     const matchesPhone = Boolean(userPhone && inq.senderPhone && inq.senderPhone.replace(/\D/g, '') === userPhone);
     return matchesUid || matchesEmail || matchesPhone;
-  });
+  }).filter((inq) => !inq.deletedFor?.includes(userUid)).map((inq) => getInquiryVisibility(inq, userUid));
 };
 
 export const addInquiry = async (inquiry: Omit<InquiryMessage, 'id' | 'createdAt' | 'isRead'>): Promise<InquiryMessage> => {
@@ -238,7 +249,9 @@ export const addInquiry = async (inquiry: Omit<InquiryMessage, 'id' | 'createdAt
     ...inquiry,
     id: `inq-${Date.now()}`,
     createdAt: new Date().toISOString(),
-    isRead: false
+    isRead: false,
+    readBy: [],
+    deletedFor: []
   };
   try {
     await setDoc(doc(db, INQUIRIES_COLLECTION, newInquiry.id), cleanInquiry(newInquiry));
@@ -247,9 +260,14 @@ export const addInquiry = async (inquiry: Omit<InquiryMessage, 'id' | 'createdAt
     saveLocalInquiries([newInquiry, ...getLocalInquiries()]);
   }
 
-  // Trigger native mobile notification in phone's notification bar
+  // Notify only the property owner, never the client who just sent the request.
   try {
-    notifyNewInquiryReceived(newInquiry);
+    const activeUser = typeof localStorage !== 'undefined'
+      ? JSON.parse(localStorage.getItem('nyumbalink_active_user') || 'null') as UserProfile | null
+      : null;
+    if (activeUser?.uid === newInquiry.propertyOwnerId) {
+      notifyNewInquiryReceived(newInquiry);
+    }
   } catch (e) {
     console.warn('Could not trigger native inquiry notification:', e);
   }
@@ -263,17 +281,32 @@ export const replyToInquiry = async (id: string, replyText: string, agentName = 
   const agentReply = { text: replyText, repliedAt: new Date().toISOString(), agentName, agentUid };
   const updated = (await getInquiries()).map((item) => {
     if (item.id !== id) return item;
-    const withReply = { ...item, isRead: true, agentReply };
+    const withReply = { ...item, isRead: false, agentReply };
     repliedItem = withReply;
     return withReply;
   });
   const updatedItem = repliedItem;
-  if (updatedItem) await updateDoc(doc(db, INQUIRIES_COLLECTION, id), cleanInquiry(updatedItem));
+  if (updatedItem) {
+    try {
+      await updateDoc(doc(db, INQUIRIES_COLLECTION, id), {
+        agentReply,
+        isRead: false,
+        readBy: []
+      });
+    } catch (error) {
+      saveLocalInquiries(updated);
+    }
+  }
 
-  // Trigger native mobile notification for client
+  // Notify only the client who created this inquiry.
   if (repliedItem) {
     try {
-      notifyInquiryReply(repliedItem);
+      const activeUser = typeof localStorage !== 'undefined'
+        ? JSON.parse(localStorage.getItem('nyumbalink_active_user') || 'null') as UserProfile | null
+        : null;
+      if (activeUser?.uid === repliedItem.senderUid) {
+        notifyInquiryReply(repliedItem);
+      }
     } catch (e) {
       console.warn('Could not trigger native reply notification:', e);
     }
@@ -282,13 +315,39 @@ export const replyToInquiry = async (id: string, replyText: string, agentName = 
   return updated;
 };
 
-export const markInquiryAsRead = async (id: string): Promise<InquiryMessage[]> => {
-  await updateDoc(doc(db, INQUIRIES_COLLECTION, id), { isRead: true });
+export const markInquiryAsRead = async (id: string, userUid: string): Promise<InquiryMessage[]> => {
+  if (!userUid) return [];
+  try {
+    const inquiryRef = doc(db, INQUIRIES_COLLECTION, id);
+    const current = (await getDocs(query(collection(db, INQUIRIES_COLLECTION), where('__name__', '==', id)))).docs[0];
+    const existing = current ? current.data() as InquiryMessage : null;
+    if (!existing) return [];
+    const readBy = Array.from(new Set([...(existing.readBy || []), userUid]));
+    await updateDoc(inquiryRef, { readBy, isRead: false });
+  } catch (error) {
+    const local = getLocalInquiries();
+    saveLocalInquiries(local.map((item) => item.id === id
+      ? { ...item, readBy: Array.from(new Set([...(item.readBy || []), userUid])) }
+      : item));
+  }
   return getInquiries();
 };
 
-export const deleteInquiry = async (id: string): Promise<InquiryMessage[]> => {
-  await deleteDoc(doc(db, INQUIRIES_COLLECTION, id));
+export const deleteInquiry = async (id: string, userUid: string): Promise<InquiryMessage[]> => {
+  if (!userUid) return [];
+  try {
+    const inquiryRef = doc(db, INQUIRIES_COLLECTION, id);
+    const snapshot = await getDocs(query(collection(db, INQUIRIES_COLLECTION), where('__name__', '==', id)));
+    const existing = snapshot.docs[0]?.data() as InquiryMessage | undefined;
+    if (!existing) return [];
+    const deletedFor = Array.from(new Set([...(existing.deletedFor || []), userUid]));
+    await updateDoc(inquiryRef, { deletedFor });
+  } catch (error) {
+    const local = getLocalInquiries();
+    saveLocalInquiries(local.map((item) => item.id === id
+      ? { ...item, deletedFor: Array.from(new Set([...(item.deletedFor || []), userUid])) }
+      : item));
+  }
   return getInquiries();
 };
 
@@ -302,11 +361,26 @@ export const updateContractInquiryStatus = async (
     ? { ...item, contractStatus: status, isRead: false, ...(agentReply ? { agentReply } : {}) }
     : item);
   const updatedInquiry = updated.find((item) => item.contractId === contractId);
-  if (updatedInquiry) await updateDoc(doc(db, INQUIRIES_COLLECTION, updatedInquiry.id), cleanInquiry(updatedInquiry));
+  if (updatedInquiry) {
+    try {
+      await updateDoc(doc(db, INQUIRIES_COLLECTION, updatedInquiry.id), {
+        contractStatus: status,
+        isRead: false,
+        ...(agentReply ? { agentReply, readBy: [] } : {})
+      });
+    } catch (error) {
+      saveLocalInquiries(updated);
+    }
+  }
 
   if (updatedInquiry?.agentReply) {
     try {
-      notifyInquiryReply(updatedInquiry);
+      const activeUser = typeof localStorage !== 'undefined'
+        ? JSON.parse(localStorage.getItem('nyumbalink_active_user') || 'null') as UserProfile | null
+        : null;
+      if (activeUser?.uid === updatedInquiry.senderUid) {
+        notifyInquiryReply(updatedInquiry);
+      }
     } catch (error) {
       console.warn('Could not trigger contract confirmation notification:', error);
     }

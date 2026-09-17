@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nyumbalink-cache-v1';
+const CACHE_NAME = 'nyumbalink-cache-v2';
 
 // Critical core assets to pre-cache on service worker installation
 const PRECACHE_ASSETS = [
@@ -78,7 +78,6 @@ self.addEventListener('fetch', (event) => {
     url.hostname.includes('unpkg.com') ||
     request.destination === 'image' ||
     request.destination === 'style' ||
-    request.destination === 'script' ||
     request.destination === 'font'
   ) {
     event.respondWith(
@@ -98,6 +97,24 @@ self.addEventListener('fetch', (event) => {
 
         return cachedResponse || fetchPromise;
       })
+    );
+    return;
+  }
+
+  // JavaScript bundles must be refreshed after every deployment. Hashed Vite
+  // filenames already provide cache safety, while network-first avoids stale
+  // bundles being used after an interrupted update.
+  if (request.destination === 'script') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }

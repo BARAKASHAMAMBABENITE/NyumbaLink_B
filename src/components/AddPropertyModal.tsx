@@ -55,6 +55,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [neighborhood, setNeighborhood] = useState(BUKAVU_COMMUNES_WITH_NEIGHBORHOODS['Ibanda'][0]);
   const [parcelDimensions, setParcelDimensions] = useState('20m x 25m (500 m²)');
   const [address, setAddress] = useState(`Quartier ${BUKAVU_COMMUNES_WITH_NEIGHBORHOODS['Ibanda'][0]}, Commune d'Ibanda, Bukavu`);
+  const [ownerPhone, setOwnerPhone] = useState(user?.phone || '');
   const [latitude, setLatitude] = useState<number>(-2.5150);
   const [longitude, setLongitude] = useState<number>(28.8680);
   const [surface, setSurface] = useState<number | ''>('');
@@ -252,6 +253,11 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     }
 
     if (!title || !price) return;
+    if (!ownerPhone.trim()) {
+      setImageError('Veuillez renseigner le numéro WhatsApp du propriétaire du bien.');
+      setUploadStatus('error');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -278,7 +284,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
         images,
         ownerId: user?.uid || 'agent-001',
         ownerName: user?.fullname || 'Agent Immobilier NyumbaLink',
-        ownerPhone: user?.phone && user.phone.trim() !== '' ? user.phone : '+243986760178',
+        ownerPhone: ownerPhone.trim(),
         ownerEmail: user?.email,
         ownerRole: user?.role || 'agent',
         ownerExpiresAt: user?.agentExpiresAt,
@@ -494,6 +500,20 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#181818] mb-3 outline-hidden"
+            />
+
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
+              Numéro WhatsApp du propriétaire
+            </label>
+            <input
+              type="tel"
+              required
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="Ex: +243 812 345 678"
+              value={ownerPhone}
+              onChange={(e) => setOwnerPhone(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#181818] focus:ring-2 focus:ring-[#FF385C] outline-hidden mb-4"
             />
 
             <div className="flex items-center justify-between mb-2">

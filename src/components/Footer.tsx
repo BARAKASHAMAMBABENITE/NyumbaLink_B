@@ -50,11 +50,11 @@ export const Footer: React.FC = () => {
                 </a>
 
                 <a
-                  href="https://wa.me/243993853036?text=Bonjour%20NyumbaLink%2C%20je%20souhaite%20des%20informations"
+                  href="https://wa.me/243986760178?text=Bonjour%20B%C3%A9nite%2C%20je%20souhaite%20des%20informations"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="WhatsApp NyumbaLink"
-                  title="WhatsApp David Makindu (+243 993 853 036)"
+                  title="WhatsApp Bénite (+243 986 760 178)"
                   className="px-3 h-9 rounded-xl bg-[#1e1e1e] hover:bg-[#25D366] text-stone-300 hover:text-white border border-[#2e2e2e] hover:border-[#25D366] flex items-center space-x-1.5 transition-all duration-200 text-xs font-bold"
                 >
                   <MessageCircle className="w-4 h-4 text-[#25D366] group-hover:text-white" />
@@ -88,7 +88,10 @@ export const Footer: React.FC = () => {
             <a href="https://x.com/BBarakashamamba" target="_blank" rel="noopener noreferrer" aria-label="Profil X (Twitter)" title="X (Twitter) - @BBarakashamamba" className="w-8 h-8 rounded-lg bg-[#1e1e1e] hover:bg-black text-stone-300 hover:text-white border border-[#2e2e2e] flex items-center justify-center transition-colors">
               <Twitter className="w-3.5 h-3.5" />
             </a>
-            <a href="https://wa.me/243993853036?text=Bonjour%20NyumbaLink%2C%20je%20souhaite%20des%20informations" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp NyumbaLink" title="WhatsApp NyumbaLink" className="w-8 h-8 rounded-lg bg-[#1e1e1e] hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#2e2e2e] flex items-center justify-center transition-colors">
+            <a href="https://wa.me/243986760178?text=Bonjour%20B%C3%A9nite%2C%20je%20souhaite%20des%20informations" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp Bénite" title="WhatsApp Bénite (+243 986 760 178)" className="w-8 h-8 rounded-lg bg-[#1e1e1e] hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#2e2e2e] flex items-center justify-center transition-colors">
+              <MessageCircle className="w-3.5 h-3.5" />
+            </a>
+            <a href="https://wa.me/243993853036?text=Bonjour%20David%2C%20je%20souhaite%20des%20informations" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp David" title="WhatsApp David (+243 993 853 036)" className="w-8 h-8 rounded-lg bg-[#1e1e1e] hover:bg-[#25D366] text-[#25D366] hover:text-white border border-[#2e2e2e] flex items-center justify-center transition-colors">
               <MessageCircle className="w-3.5 h-3.5" />
             </a>
           </div>

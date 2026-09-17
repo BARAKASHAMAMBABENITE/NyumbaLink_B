@@ -51,11 +51,11 @@ service cloud.firestore {
         resource.data.senderUid == request.auth.uid ||
         resource.data.propertyOwnerId == request.auth.uid
       );
-      allow update: if isSignedIn() && (
-        isAdmin() ||
-        resource.data.propertyOwnerId == request.auth.uid ||
-        resource.data.senderUid == request.auth.uid
-      );
+      allow update: if isSignedIn() && isAdmin()
+        || isSignedIn() && resource.data.senderUid == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'deletedFor', 'isRead'])
+        || isSignedIn() && resource.data.propertyOwnerId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['agentReply', 'contractStatus', 'readBy', 'deletedFor', 'isRead']);
       allow delete: if isSignedIn() && (
         isAdmin() ||
         resource.data.senderUid == request.auth.uid

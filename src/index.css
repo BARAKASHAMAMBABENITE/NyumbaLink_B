@@ -111,6 +111,14 @@ html, body, #root {
   overflow-x: hidden;
 }
 
+.notification-close-button {
+  color: #222222 !important;
+}
+
+.dark .notification-close-button {
+  color: #ffffff !important;
+}
+
 [class*="bg-amber-"], [class*="bg-orange-"] {
   background-color: #FF385C !important;
 }

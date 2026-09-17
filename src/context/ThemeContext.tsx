@@ -16,7 +16,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (saved === 'light' || saved === 'dark' || saved === 'system') {
       return saved;
     }
-    return 'system';
+    return 'light';
   });
 
   const [isDark, setIsDark] = useState<boolean>(false);

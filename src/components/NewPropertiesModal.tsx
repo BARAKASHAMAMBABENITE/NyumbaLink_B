@@ -212,7 +212,7 @@ export const NewPropertiesModal: React.FC<NewPropertiesModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-stone-100 dark:bg-[#282828] hover:bg-stone-200 dark:hover:bg-[#333333] text-[#222222] dark:text-[#f7f7f7] font-bold rounded-xl text-xs transition cursor-pointer"
+            className="px-5 py-2 bg-[#f1f1f1] dark:bg-[#282828] hover:bg-[#e5e5e5] dark:hover:bg-[#333333] text-[#222222] dark:text-[#f7f7f7] font-bold rounded-xl text-xs transition cursor-pointer"
           >
             Fermer
           </button>

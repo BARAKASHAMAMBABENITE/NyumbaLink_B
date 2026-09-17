@@ -18,8 +18,7 @@ export const ContactModal: React.FC<ContactModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const rawPhone = property.ownerPhone || '243986760178';
-  const cleanPhone = rawPhone.replace(/\D/g, '') || '243986760178';
+  const cleanPhone = (property.ownerPhone || '').replace(/\D/g, '');
 
   const [senderName, setSenderName] = useState(user?.fullname || '');
   const [senderPhone, setSenderPhone] = useState(user?.phone || '');
@@ -41,7 +40,9 @@ export const ContactModal: React.FC<ContactModalProps> = ({
 
   // Formatted WhatsApp URL using direct api.whatsapp.com endpoint
   const fullMessageWithVisit = `${message}${visitDate ? `\n- Date de visite souhaitée : ${visitDate}` : ''}${visitTime ? ` à ${visitTime}` : ''}`;
-  const whatsappUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(fullMessageWithVisit)}`;
+  const whatsappUrl = cleanPhone
+    ? `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(fullMessageWithVisit)}`
+    : undefined;
 
   const handleWhatsAppClick = () => {
     // Save inquiry automatically when opening WhatsApp
@@ -139,14 +140,18 @@ export const ContactModal: React.FC<ContactModalProps> = ({
         {/* Single Main WhatsApp Action Button */}
         <div className="mb-5">
           <a
-            href={whatsappUrl}
+            href={whatsappUrl || '#'}
+            aria-disabled={!whatsappUrl}
+            onClick={(event) => {
+              if (!whatsappUrl) event.preventDefault();
+              handleWhatsAppClick();
+            }}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={handleWhatsAppClick}
-            className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 transition shadow-md cursor-pointer"
+            className={`w-full ${whatsappUrl ? 'bg-[#25D366] hover:bg-[#20bd5a] cursor-pointer' : 'bg-slate-400 cursor-not-allowed'} text-white py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center space-x-2 transition shadow-md`}
           >
             <MessageSquare className="w-5 h-5" />
-            <span>Ouvrir WhatsApp avec l'Agent</span>
+            <span>{whatsappUrl ? 'Ouvrir WhatsApp avec le propriétaire' : 'Numéro du propriétaire indisponible'}</span>
             <ExternalLink className="w-4 h-4 ml-1 opacity-80" />
           </a>
           <p className="text-[11px] text-slate-600 dark:text-slate-400 text-center mt-2">

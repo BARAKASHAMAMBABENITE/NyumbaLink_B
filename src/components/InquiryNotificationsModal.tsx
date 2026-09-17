@@ -29,9 +29,7 @@ import {
   RentalContract,
   getUserContracts,
   getContractNotifications,
-  getDaysRemaining,
-  confirmContract,
-  markContractAlertAsRead
+  getDaysRemaining
 } from '../services/contractService';
 import { UserProfile } from '../types';
 
@@ -51,33 +49,24 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
   const [activeCategory, setActiveCategory] = useState<'messages' | 'contracts'>('messages');
   const [inquiries, setInquiries] = useState<InquiryMessage[]>([]);
   const [contractAlerts, setContractAlerts] = useState<{
-    pending: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string; isRead: boolean }[];
-    confirmed: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string; isRead: boolean }[];
-    expired: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string; isRead: boolean }[];
-    expiringSoon: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string; isRead: boolean }[];
+    pending: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string }[];
+    confirmed: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string }[];
+    expired: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string }[];
+    expiringSoon: { contract: RentalContract; role: 'tenant' | 'landlord' | 'admin'; message: string }[];
     totalAlerts: number;
-    unreadAlerts: number;
-  }>({ pending: [], confirmed: [], expired: [], expiringSoon: [], totalAlerts: 0, unreadAlerts: 0 });
+  }>({ pending: [], confirmed: [], expired: [], expiringSoon: [], totalAlerts: 0 });
 
   const [filterTab, setFilterTab] = useState<'all' | 'unread' | 'replied'>('all');
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState<string>('');
   const [copiedPhoneId, setCopiedPhoneId] = useState<string | null>(null);
 
-  const loadData = async () => {
-    const [loadedInquiries, alerts] = await Promise.all([
-      getUserInquiries(user || null),
-      getContractNotifications(user || null)
-    ]);
-    setInquiries(loadedInquiries || []);
-    setContractAlerts({
-      pending: alerts.pending || [],
-      confirmed: alerts.confirmed || [],
-      expired: alerts.expired || [],
-      expiringSoon: alerts.expiringSoon || [],
-      totalAlerts: alerts.totalAlerts || 0,
-      unreadAlerts: alerts.unreadAlerts || 0
-    });
+  const loadData = () => {
+    const loaded = getUserInquiries(user?.uid, user?.role);
+    setInquiries(loaded);
+
+    const alerts = getContractNotifications(user?.uid, user?.role);
+    setContractAlerts(alerts);
   };
 
   useEffect(() => {
@@ -88,45 +77,42 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
 
   if (!isOpen) return null;
 
-  const unreadMessagesCount = (inquiries || []).filter((i) => !i.isRead).length;
-  const totalContractAlerts = contractAlerts.unreadAlerts;
+  const unreadMessagesCount = inquiries.filter((i) => !i.isRead).length;
+  const totalContractAlerts = contractAlerts.totalAlerts;
 
-  const handleMarkContractAlertAsRead = (kind: 'pending' | 'confirmed' | 'expired' | 'expiringSoon', contractId: string) => {
-    if (!user) return;
-    const alert = contractAlerts[kind].find((item) => item.contract.id === contractId);
-    if (!alert) return;
-    markContractAlertAsRead(user.uid, kind, contractId, !alert.isRead);
-    void loadData();
-  };
-
-  const filteredInquiries = (inquiries || []).filter((item) => {
+  const filteredInquiries = inquiries.filter((item) => {
     if (filterTab === 'unread') return !item.isRead;
     if (filterTab === 'replied') return Boolean(item.agentReply);
     return true;
   });
 
   const handleMarkAsRead = (id: string) => {
-    void markInquiryAsRead(id).then(loadData);
+    markInquiryAsRead(id);
+    loadData();
+  };
+
+  // Marque tous les messages non lus comme lus sans nécessiter de nouvel export
+  const handleMarkAllMessagesAsRead = () => {
+    const unreadItems = inquiries.filter((i) => !i.isRead);
+    if (unreadItems.length === 0) return;
+    unreadItems.forEach((item) => {
+      markInquiryAsRead(item.id);
+    });
+    loadData();
   };
 
   const handleDelete = (id: string) => {
-    void deleteInquiry(id).then(loadData);
+    deleteInquiry(id);
+    loadData();
   };
 
   const handleSendReply = (id: string) => {
     if (!replyText.trim()) return;
     const authorName = user?.fullname || (user?.role === 'agent' ? 'Agent NyumbaLink' : 'Support NyumbaLink');
-    void replyToInquiry(id, replyText, authorName, user?.uid).then(() => {
-      loadData();
-      setReplyingToId(null);
-      setReplyText('');
-    });
-  };
-
-  const handleConfirmContract = (item: InquiryMessage) => {
-    if (!item.contractId || item.contractStatus !== 'pending') return;
-
-    void confirmContract(item.contractId, user?.fullname || 'Le propriétaire', user?.uid).then(loadData);
+    replyToInquiry(id, replyText, authorName, user?.uid);
+    loadData();
+    setReplyingToId(null);
+    setReplyText('');
   };
 
   const isClientView = user?.role === 'client';
@@ -135,7 +121,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200 font-sans">
       <div className="bg-white dark:bg-[#1e1e1e] rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 dark:border-white/10 relative max-h-[88vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-white/10">
+        <div className="flex items-start justify-between gap-3 pb-4 border-b border-gray-100 dark:border-white/10">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-2xl bg-[#FF385C]/10 text-[#FF385C] flex items-center justify-center font-bold">
               <MessageSquare className="w-5 h-5" />
@@ -153,6 +139,16 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
               </p>
             </div>
           </div>
+
+          {/* Bouton fermer (croix d'en-tête bien visible) */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer les notifications"
+            className="shrink-0 w-9 h-9 rounded-xl bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/20 text-gray-800 dark:text-gray-100 flex items-center justify-center transition cursor-pointer border border-gray-200/80 dark:border-white/10"
+          >
+            <span className="text-xl leading-none font-bold">×</span>
+          </button>
         </div>
 
         {/* Category Switcher: Messages vs Contract Alerts */}
@@ -197,41 +193,54 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
         {/* TAB 1: MESSAGES */}
         {activeCategory === 'messages' && (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Filter Tabs */}
-            <div className="flex items-center space-x-2 pb-2.5 border-b border-gray-100 dark:border-white/10">
-              <button
-                type="button"
-                onClick={() => setFilterTab('all')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  filterTab === 'all'
-                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                Tous ({(inquiries || []).length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterTab('unread')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  filterTab === 'unread'
-                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                Non lus ({(inquiries || []).filter((i) => !i.isRead).length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setFilterTab('replied')}
-                className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  filterTab === 'replied'
-                    ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                    : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
-                }`}
-              >
-                Avec réponses ({(inquiries || []).filter((i) => Boolean(i.agentReply)).length})
-              </button>
+            {/* Filter Tabs & Bouton Tout marquer comme vu */}
+            <div className="flex items-center justify-between pb-2.5 border-b border-gray-100 dark:border-white/10 gap-2 flex-wrap">
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setFilterTab('all')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    filterTab === 'all'
+                      ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                      : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Tous ({inquiries.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterTab('unread')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    filterTab === 'unread'
+                      ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                      : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Non lus ({inquiries.filter((i) => !i.isRead).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterTab('replied')}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    filterTab === 'replied'
+                      ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                      : 'text-gray-500 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Avec réponses ({inquiries.filter((i) => Boolean(i.agentReply)).length})
+                </button>
+              </div>
+
+              {unreadMessagesCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleMarkAllMessagesAsRead}
+                  className="text-xs font-bold text-[#FF385C] hover:bg-[#FF385C]/10 px-2.5 py-1 rounded-xl flex items-center space-x-1 transition cursor-pointer"
+                >
+                  <CheckCheck className="w-3.5 h-3.5" />
+                  <span>Tout marquer comme vu</span>
+                </button>
+              )}
             </div>
 
             {/* Message List */}
@@ -262,8 +271,8 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                   const appointmentDetails = item.visitDate
                     ? ` le ${item.visitDate}${item.visitTime ? ` à ${item.visitTime}` : ''}`
                     : item.visitTime
-                      ? ` à ${item.visitTime}`
-                      : '';
+                    ? ` à ${item.visitTime}`
+                    : '';
 
                   let digits = (item.senderPhone || '').replace(/\D/g, '');
                   if (digits.startsWith('0')) {
@@ -271,8 +280,9 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                   } else if (!digits.startsWith('243') && digits.length === 9) {
                     digits = '243' + digits;
                   }
-                  const cleanDigits = digits || '243986760178';
-                  const agentDigits = (item.propertyOwnerPhone || '243986760178').replace(/\D/g, '');
+                  const cleanDigits = digits;
+                  const agentDigits = (item.propertyOwnerPhone || '').replace(/\D/g, '');
+                  const whatsappDigits = isClientView ? agentDigits : cleanDigits;
 
                   return (
                     <div
@@ -327,7 +337,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
 
                       {/* Message Body */}
                       <div className="bg-white dark:bg-[#202020] p-3 rounded-xl border border-gray-100 dark:border-white/5 text-xs text-gray-800 dark:text-gray-200">
-                          <span className="text-[10px] font-bold text-gray-400 block mb-1">
+                        <span className="text-[10px] font-bold text-gray-400 block mb-1">
                           {isClientView ? 'Votre message :' : `Message de ${clientName} :`}
                         </span>
                         <p className="italic leading-relaxed">"{item.message}"</p>
@@ -348,22 +358,6 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                           <p className="text-emerald-950 dark:text-emerald-100 font-medium pl-4">
                             {item.agentReply.text}
                           </p>
-                        </div>
-                      )}
-
-                      {item.contractId && item.contractStatus === 'pending' && !isClientView && (
-                        <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl space-y-2">
-                          <p className="text-xs font-bold text-blue-900 dark:text-blue-200">
-                            Cette demande attend votre confirmation pour conclure le contrat.
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => handleConfirmContract(item)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center space-x-1 cursor-pointer transition"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Confirmer le contrat</span>
-                          </button>
                         </div>
                       )}
 
@@ -404,14 +398,18 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-2 border-t border-gray-100 dark:border-white/10">
                         <div className="flex items-center space-x-2">
                           <a
-                            href={`https://api.whatsapp.com/send?phone=${isClientView ? agentDigits : cleanDigits}&text=${encodeURIComponent(
+                            href={whatsappDigits ? `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(
                               isClientView
                                 ? `Bonjour, je fais suite à ma demande sur NyumbaLink pour : ${item.propertyTitle}`
                                 : (item.agentReply ? item.agentReply.text : `Bonjour ${item.senderName}, je fais suite à votre demande sur NyumbaLink pour : ${item.propertyTitle}`)
-                            )}`}
+                            )}` : '#'}
+                            aria-disabled={!whatsappDigits}
+                            onClick={(event) => {
+                              if (!whatsappDigits) event.preventDefault();
+                            }}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 cursor-pointer transition shadow-xs"
+                            className={`text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs ${whatsappDigits ? 'bg-[#25D366] hover:bg-[#20bd5a] cursor-pointer' : 'bg-slate-400 cursor-not-allowed'}`}
                           >
                             <MessageSquare className="w-3.5 h-3.5" />
                             <span>{isClientView ? 'Discuter sur WhatsApp' : 'Répondre sur WhatsApp'}</span>
@@ -466,270 +464,154 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
           </div>
         )}
 
-        {/* TAB 2: CONTRACT ALERTS (DEMANDES, DELAI TERMINE & ECHEANCE PROCHE) */}
+        {/* TAB 2: CONTRACT ALERTS */}
         {activeCategory === 'contracts' && (
-          <div className="flex-1 overflow-y-auto py-2 space-y-3">
-            {contractAlerts.totalAlerts === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-                <p className="font-bold text-sm">
-                  Aucune alerte de contrat active
-                </p>
-                <p className="text-xs mt-1 max-w-sm mx-auto">
-                  Les demandes de confirmation et les alertes d'échéances apparaîtront ici.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* 1. Pending contract requests */}
-                {(contractAlerts.pending || []).map((alert) => {
-                  const isLandlord = alert.role === 'landlord' || alert.role === 'admin';
+          <div className="flex-1 min-h-0 flex flex-col">
+            <div className="flex-1 overflow-y-auto py-2 space-y-3">
+              {contractAlerts.totalAlerts === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                  <p className="font-bold text-sm">
+                    Aucune alerte de contrat active
+                  </p>
+                  <p className="text-xs mt-1 max-w-sm mx-auto">
+                    Les demandes de confirmation et les alertes d'échéances apparaîtront ici.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* 1. Pending contract requests */}
+                  {(contractAlerts.pending || []).map((alert) => {
+                    const isLandlord = alert.role === 'landlord' || alert.role === 'admin';
 
-                  return (
-                    <div
-                      key={`alert-pending-${alert.contract.id}`}
-                      className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 space-y-2.5 shadow-xs"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-blue-600 text-white">
-                          Confirmation requise
-                        </span>
-                        <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">
-                          En attente
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                          {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
-                        </h4>
-                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
-                          {alert.message}
-                        </p>
-                      </div>
-
-                      {isLandlord ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void confirmContract(alert.contract.id, user?.fullname || 'Le propriétaire', user?.uid).then(loadData)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-2 rounded-xl flex items-center space-x-1 cursor-pointer transition"
-                          >
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Confirmer le contrat</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleMarkContractAlertAsRead('pending', alert.contract.id)}
-                            className="text-xs font-bold text-blue-700 dark:text-blue-300 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer"
-                          >
-                            <CheckCheck className="w-3.5 h-3.5 inline mr-1" />
-                            {alert.isRead ? 'Marquer comme non lu' : 'Marquer comme lu'}
-                          </button>
+                    return (
+                      <div
+                        key={`alert-pending-${alert.contract.id}`}
+                        className="p-4 rounded-2xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800/60 space-y-2.5 shadow-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-blue-600 text-white">
+                            Confirmation requise
+                          </span>
+                          <span className="text-[11px] font-semibold text-blue-700 dark:text-blue-300">
+                            En attente
+                          </span>
                         </div>
-                      ) : (
-                        <div className="flex flex-wrap items-center gap-2">
+
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                            {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
+                          </h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
+                            {alert.message}
+                          </p>
+                        </div>
+
+                        {isLandlord ? (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-bold text-emerald-600">
+                              À gérer dans vos contrats
+                            </span>
+                          </div>
+                        ) : (
                           <p className="text-xs font-semibold text-blue-800 dark:text-blue-200">
                             Vous recevrez une notification dès que le propriétaire aura confirmé.
                           </p>
-                          <button
-                            type="button"
-                            onClick={() => handleMarkContractAlertAsRead('pending', alert.contract.id)}
-                            className="text-xs font-bold text-blue-700 dark:text-blue-300 px-2.5 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 cursor-pointer"
-                          >
-                            <CheckCheck className="w-3.5 h-3.5 inline mr-1" />
-                            {alert.isRead ? 'Marquer comme non lu' : 'Marquer comme lu'}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                        )}
+                      </div>
+                    );
+                  })}
 
-                {/* 2. Confirmed contracts */}
-                {(contractAlerts.confirmed || []).map((alert) => (
-                  <div
-                    key={`alert-confirmed-${alert.contract.id}`}
-                    className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-2.5 shadow-xs"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-600 text-white">
-                        Contrat conclu
-                      </span>
-                      <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
-                        Confirmation
-                      </span>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                        {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
-                      </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
-                        {alert.message}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => handleMarkContractAlertAsRead('confirmed', alert.contract.id)}
-                        className="text-xs font-bold text-emerald-700 dark:text-emerald-300 px-2.5 py-1.5 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-900/30 cursor-pointer"
-                      >
-                        <CheckCheck className="w-3.5 h-3.5 inline mr-1" />
-                        {alert.isRead ? 'Marquer comme non lu' : 'Marquer comme lu'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-                {/* 3. Expired contracts */}
-                {(contractAlerts.expired || []).map((alert, idx) => {
-                  const targetPhone = alert.role === 'tenant' ? alert.contract.landlordPhone : alert.contract.tenantPhone;
-                  const cleanPhone = (targetPhone || '').replace(/[^0-9]/g, '');
-
-                  return (
+                  {/* 2. Confirmed contracts */}
+                  {(contractAlerts.confirmed || []).map((alert) => (
                     <div
-                      key={`alert-exp-${idx}`}
-                      className="p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 space-y-2.5 shadow-xs"
+                      key={`alert-confirmed-${alert.contract.id}`}
+                      className="p-4 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 space-y-2.5 shadow-xs"
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center space-x-2">
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-600 text-white">
+                          Contrat conclu
+                        </span>
+                        <span className="text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                          Confirmation
+                        </span>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                          {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
+                        </h4>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
+                          {alert.message}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* 3. Expired contracts */}
+                  {(contractAlerts.expired || []).map((alert, idx) => {
+                    return (
+                      <div
+                        key={`alert-exp-${idx}`}
+                        className="p-4 rounded-2xl bg-rose-50/70 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/60 space-y-2.5 shadow-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
                           <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-600 text-white">
                             Délai Terminé / Expiré
                           </span>
+                          <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
+                            Échéance passée
+                          </span>
                         </div>
-                        <span className="text-[11px] font-semibold text-rose-700 dark:text-rose-300">
-                          Échéance passée
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                          {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
-                        </h4>
-                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
-                          {alert.message}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleMarkContractAlertAsRead('expired', alert.contract.id)}
-                          className="text-xs font-bold text-rose-700 dark:text-rose-300 px-2.5 py-1.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-900/30 cursor-pointer"
-                        >
-                          <CheckCheck className="w-3.5 h-3.5 inline mr-1" />
-                          {alert.isRead ? 'Marquer comme non lu' : 'Marquer comme lu'}
-                        </button>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-rose-200 dark:border-rose-800/40">
-                        <div className="flex items-center space-x-2">
-                          {onNavigateToContracts && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onClose();
-                                onNavigateToContracts();
-                              }}
-                              className="px-3 py-1.5 bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                            >
-                              <RefreshCw className="w-3.5 h-3.5" />
-                              <span>Renouveler le bail</span>
-                            </button>
-                          )}
-
-                          <a
-                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                              `Bonjour, je vous contacte concernant l'échéance du contrat de bail pour "${alert.contract.propertyTitle}" sur NyumbaLink.`
-                            )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center space-x-1 cursor-pointer shadow-xs"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Contacter l'autre partie</span>
-                          </a>
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                            {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
+                          </h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
+                            {alert.message}
+                          </p>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
 
-                {/* 4. Expiring soon contracts */}
-                {(contractAlerts.expiringSoon || []).map((alert, idx) => {
-                  const targetPhone = alert.role === 'tenant' ? alert.contract.landlordPhone : alert.contract.tenantPhone;
-                  const cleanPhone = (targetPhone || '').replace(/[^0-9]/g, '');
-                  const days = getDaysRemaining(alert.contract.endDate);
-
-                  return (
-                    <div
-                      key={`alert-soon-${idx}`}
-                      className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2.5 shadow-xs"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-500 text-white">
-                          Échéance Proche ({days}j restants)
-                        </span>
-                        <span className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                          Préavis 5 jours Bukavu
-                        </span>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">
-                          {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
-                        </h4>
-                        <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
-                          {alert.message}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => handleMarkContractAlertAsRead('expiringSoon', alert.contract.id)}
-                          className="text-xs font-bold text-amber-700 dark:text-amber-300 px-2.5 py-1.5 rounded-lg hover:bg-amber-100 dark:hover:bg-amber-900/30 cursor-pointer"
-                        >
-                          <CheckCheck className="w-3.5 h-3.5 inline mr-1" />
-                          {alert.isRead ? 'Marquer comme non lu' : 'Marquer comme lu'}
-                        </button>
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-amber-200 dark:border-amber-800/40">
-                        <div className="flex items-center space-x-2">
-                          {onNavigateToContracts && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onClose();
-                                onNavigateToContracts();
-                              }}
-                              className="px-3 py-1.5 bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold rounded-xl transition flex items-center space-x-1.5 cursor-pointer shadow-xs"
-                            >
-                              <RefreshCw className="w-3.5 h-3.5" />
-                              <span>Renouveler le bail</span>
-                            </button>
-                          )}
-
-                          <a
-                            href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(
-                              `Bonjour, je vous contacte concernant le bail de "${alert.contract.propertyTitle}" qui arrive à terme dans ${days} jour(s).`
-                            )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition flex items-center space-x-1 cursor-pointer shadow-xs"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                            <span>Contacter sur WhatsApp</span>
-                          </a>
+                  {/* 4. Expiring soon contracts */}
+                  {(contractAlerts.expiringSoon || []).map((alert, idx) => {
+                    return (
+                      <div
+                        key={`alert-soon-${idx}`}
+                        className="p-4 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 space-y-2.5 shadow-xs"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-600 text-white">
+                            Échéance Proche
+                          </span>
+                          <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                            Bientôt expiré
+                          </span>
+                        </div>
+                        <div>
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                            {alert.contract.propertyTitle} ({alert.contract.propertyNeighborhood})
+                          </h4>
+                          <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
+                            {alert.message}
+                          </p>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Footer */}
-        <div className="pt-3 border-t border-gray-100 dark:border-white/10 flex justify-end">
+        {/* Footer avec bouton Fermer haute lisibilité en thème clair et sombre */}
+        <div className="pt-4 border-t border-gray-100 dark:border-white/10 flex justify-end">
           <button
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/20 text-gray-900 dark:text-white font-bold rounded-xl text-xs transition cursor-pointer"
+            className="notification-close-button px-5 py-2.5 rounded-xl text-xs font-bold text-gray-900 dark:text-white transition cursor-pointer shadow-xs bg-gray-100 hover:bg-gray-200 dark:bg-white/10 dark:hover:bg-white/20 border border-gray-300/70 dark:border-white/10"
           >
             Fermer
           </button>
