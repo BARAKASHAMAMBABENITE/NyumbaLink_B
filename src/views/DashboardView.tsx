@@ -66,6 +66,8 @@ import {
   updateUserRoleInFirestore,
   updateUserProfileInFirestore
 } from '../services/authService';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '../config/firebase'; // <-- CORRIGÉ ICI (dossier config)
 import { UserAvatar } from '../components/UserAvatar';
 import { PhoneNotificationBanner } from '../components/PhoneNotificationBanner';
 import { getUserInquiries, InquiryMessage } from '../services/inquiryService';
@@ -121,11 +123,45 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [contracts, setContracts] = useState<RentalContract[]>([]);
 
   useEffect(() => {
-    if (user) {
-      void getUserInquiries(user).then(setInquiries);
-      void getUserContracts(user).then(setContracts);
-    }
-  }, [user]);
+    const loadFirestoreData = async () => {
+      if (!user) return;
+      try {
+        const inquiriesQuery = isAdmin 
+          ? collection(db, 'inquiries')
+          : query(collection(db, 'inquiries'), where('propertyOwnerId', '==', user.uid));
+        
+        const inquiriesSnap = await getDocs(inquiriesQuery);
+        if (!inquiriesSnap.empty) {
+          const loadedInquiries = inquiriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as InquiryMessage[];
+          setInquiries(loadedInquiries);
+        } else {
+          const fallbackInq = await getUserInquiries(user);
+          setInquiries(fallbackInq);
+        }
+
+        const contractsQuery = isAdmin
+          ? collection(db, 'contracts')
+          : query(collection(db, 'contracts'), where('landlordId', '==', user.uid));
+
+        const contractsSnap = await getDocs(contractsQuery);
+        if (!contractsSnap.empty) {
+          const loadedContracts = contractsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })) as RentalContract[];
+          setContracts(loadedContracts);
+        } else {
+          const fallbackContracts = await getUserContracts(user);
+          setContracts(fallbackContracts);
+        }
+      } catch (err) {
+        console.warn('Erreur de chargement distant, utilisation du service local :', err);
+        const fallbackInq = await getUserInquiries(user);
+        const fallbackContracts = await getUserContracts(user);
+        setInquiries(fallbackInq);
+        setContracts(fallbackContracts);
+      }
+    };
+
+    void loadFirestoreData();
+  }, [user, isAdmin]);
 
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
@@ -141,71 +177,58 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [propCommuneFilter, setPropCommuneFilter] = useState<string>('tous');
   const [propTypeFilter, setPropTypeFilter] = useState<string>('tous');
 
-  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
-  const [subscriptionTargetUser, setSubscriptionTargetUser] = useState<RegisteredUser | UserProfile | null>(null);
-
-  // Charger et synchroniser les données d'activité pour l'Admin
-  const loadActivityData = () => {
+  const loadActivityData = async () => {
     if (isAdmin) {
-      let users = getRegisteredUsers();
-      let sessions = getActiveSessions();
-      let visitors = getVisitorLogs();
-
-      // S'assurer que l'utilisateur connecté actuel est bien enregistré et visible dans les listes admin
-      if (user && user.uid) {
-        const existsInUsers = users.some(u => u.uid === user.uid);
-        if (!existsInUsers) {
-          const newUserEntry: RegisteredUser = {
-            uid: user.uid,
-            fullname: user.fullname || 'Utilisateur',
-            email: user.email || '',
-            role: user.role || 'client',
-            phone: user.phone || '',
-            authProvider: user.email?.includes('gmail.com') ? 'google' : 'email',
-            isPartner: user.isPartner || false,
-            status: 'active'
-          };
-          users = [newUserEntry, ...users];
+      let usersList: RegisteredUser[] = [];
+      try {
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        if (!usersSnapshot.empty) {
+          usersList = usersSnapshot.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              uid: docSnap.id,
+              fullname: data.fullname || data.name || 'Utilisateur',
+              email: data.email || '',
+              role: data.role || 'client',
+              phone: data.phone || '',
+              authProvider: data.email?.includes('gmail.com') ? 'google' : 'email',
+              isPartner: data.isPartner || false,
+              status: data.status || 'active'
+            };
+          });
         }
-
-        const existsInSessions = sessions.some(s => s.userId === user.uid || s.userName === user.fullname);
-        if (!existsInSessions) {
-          const newSession: ActiveSession = {
-            userId: user.uid,
-            userName: user.fullname || 'Administrateur',
-            role: user.role || 'admin',
-            phone: user.phone || '',
-            currentPage: 'Tableau de bord',
-            deviceType: window.innerWidth < 768 ? 'mobile' : 'desktop',
-            deviceInfo: navigator.userAgent.includes('Chrome') ? 'Google Chrome Web' : 'Navigateur Web',
-            loginTime: Date.now()
-          };
-          sessions = [newSession, ...sessions];
-        }
+      } catch (err) {
+        console.warn('Erreur Firestore utilisateurs :', err);
       }
 
-      if (visitors.length === 0) {
-        visitors = [
-          {
-            visitorName: user?.fullname || 'Administrateur',
-            visitorType: user?.role || 'admin',
-            action: 'Connexion au tableau de bord',
-            page: 'Dashboard',
-            location: 'Bukavu, RDC',
-            timestamp: Date.now()
-          }
-        ];
+      if (usersList.length === 0) {
+        usersList = getRegisteredUsers();
       }
 
-      setRegisteredUsers(users);
-      setActiveSessions(sessions);
-      setVisitorLogs(visitors);
+      if (user && user.uid && !usersList.some(u => u.uid === user.uid)) {
+        usersList.unshift({
+          uid: user.uid,
+          fullname: user.fullname || 'Administrateur',
+          email: user.email || '',
+          role: user.role || 'admin',
+          phone: user.phone || '',
+          authProvider: 'google',
+          isPartner: user.isPartner || false,
+          status: 'active'
+        });
+      }
+
+      setRegisteredUsers(usersList);
+      setActiveSessions(getActiveSessions());
+      setVisitorLogs(getVisitorLogs());
     }
   };
 
   useEffect(() => {
-    loadActivityData();
-    const interval = setInterval(() => loadActivityData(), 4000);
+    void loadActivityData();
+    const interval = setInterval(() => {
+      void loadActivityData();
+    }, 5000);
     return () => clearInterval(interval);
   }, [isAdmin, user]);
 
@@ -244,7 +267,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     }
   };
 
-  // Filtrage des biens pour l'agent/partenaire ou admin
   const myProperties = isAdmin
     ? properties
     : properties.filter((p) => p.ownerId === user?.uid);
@@ -278,7 +300,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return visitorTypeFilter === 'tous' || v.visitorType === visitorTypeFilter;
   });
 
-  // Recharts Data pour l'évolution & statistiques
   const categoryData = [
     { name: 'Maison', count: properties.filter((p) => p.category === 'maison').length },
     { name: 'Parcelle', count: properties.filter((p) => p.category === 'parcelle').length },
@@ -481,7 +502,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* CONTENU ONGLET: VUE D'ENSEMBLE & GRAPHIQUES */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Cartes métriques rapides */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white dark:bg-[#1e1e1e] p-5 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xs flex items-center justify-between">
               <div>
@@ -526,23 +546,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             )}
           </div>
 
-          {/* GRAPHIQUES RECHARTS */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Répartition des Biens par Catégorie */}
             <div className="bg-white dark:bg-[#1e1e1e] p-6 rounded-3xl border border-gray-200 dark:border-gray-800 space-y-4 shadow-xs">
               <h3 className="text-sm font-black uppercase text-gray-800 dark:text-gray-200">Répartition des Biens par Catégorie</h3>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie
-                      data={categoryData}
-                      dataKey="count"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={80}
-                      label
-                    >
+                    <Pie data={categoryData} dataKey="count" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
                       {categoryData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -554,7 +564,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            {/* Répartition géographique par Commune */}
             <div className="bg-white dark:bg-[#1e1e1e] p-6 rounded-3xl border border-gray-200 dark:border-gray-800 space-y-4 shadow-xs">
               <h3 className="text-sm font-black uppercase text-gray-800 dark:text-gray-200">Volume des Biens par Commune (Bukavu)</h3>
               <div className="h-64 w-full">
@@ -570,7 +579,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </div>
             </div>
 
-            {/* Volume Financier des Loyers par Commune */}
             <div className="bg-white dark:bg-[#1e1e1e] p-6 rounded-3xl border border-gray-200 dark:border-gray-800 space-y-4 shadow-xs lg:col-span-2">
               <h3 className="text-sm font-black uppercase text-gray-800 dark:text-gray-200">Volume Financier Mensuel des Loyers ($ / Mois)</h3>
               <div className="h-72 w-full">
@@ -751,7 +759,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div className="flex flex-col sm:flex-row justify-between gap-4 items-center border-b pb-4">
             <div>
               <h3 className="text-base font-bold text-gray-900 dark:text-white">Gestion des Utilisateurs & Inscriptions</h3>
-              <p className="text-xs text-gray-500">Visualisez les inscrits, leurs rôles et accordez les statuts d'agent ou partenaire.</p>
+              <p className="text-xs text-gray-500">Visualisez tous les inscrits Firestore, leurs rôles et accordez les statuts d'agent ou partenaire.</p>
             </div>
             <div className="flex items-center space-x-2 w-full sm:w-auto">
               <input
