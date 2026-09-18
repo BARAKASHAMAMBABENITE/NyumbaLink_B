@@ -144,19 +144,70 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
   const [subscriptionTargetUser, setSubscriptionTargetUser] = useState<RegisteredUser | UserProfile | null>(null);
 
+  // Charger et synchroniser les données d'activité pour l'Admin
   const loadActivityData = () => {
     if (isAdmin) {
-      setRegisteredUsers(getRegisteredUsers());
-      setActiveSessions(getActiveSessions());
-      setVisitorLogs(getVisitorLogs());
+      let users = getRegisteredUsers();
+      let sessions = getActiveSessions();
+      let visitors = getVisitorLogs();
+
+      // S'assurer que l'utilisateur connecté actuel est bien enregistré et visible dans les listes admin
+      if (user && user.uid) {
+        const existsInUsers = users.some(u => u.uid === user.uid);
+        if (!existsInUsers) {
+          const newUserEntry: RegisteredUser = {
+            uid: user.uid,
+            fullname: user.fullname || 'Utilisateur',
+            email: user.email || '',
+            role: user.role || 'client',
+            phone: user.phone || '',
+            authProvider: user.email?.includes('gmail.com') ? 'google' : 'email',
+            isPartner: user.isPartner || false,
+            status: 'active'
+          };
+          users = [newUserEntry, ...users];
+        }
+
+        const existsInSessions = sessions.some(s => s.userId === user.uid || s.userName === user.fullname);
+        if (!existsInSessions) {
+          const newSession: ActiveSession = {
+            userId: user.uid,
+            userName: user.fullname || 'Administrateur',
+            role: user.role || 'admin',
+            phone: user.phone || '',
+            currentPage: 'Tableau de bord',
+            deviceType: window.innerWidth < 768 ? 'mobile' : 'desktop',
+            deviceInfo: navigator.userAgent.includes('Chrome') ? 'Google Chrome Web' : 'Navigateur Web',
+            loginTime: Date.now()
+          };
+          sessions = [newSession, ...sessions];
+        }
+      }
+
+      if (visitors.length === 0) {
+        visitors = [
+          {
+            visitorName: user?.fullname || 'Administrateur',
+            visitorType: user?.role || 'admin',
+            action: 'Connexion au tableau de bord',
+            page: 'Dashboard',
+            location: 'Bukavu, RDC',
+            timestamp: Date.now()
+          }
+        ];
+      }
+
+      setRegisteredUsers(users);
+      setActiveSessions(sessions);
+      setVisitorLogs(visitors);
     }
   };
 
   useEffect(() => {
     loadActivityData();
-    const interval = setInterval(() => loadActivityData(), 6000);
+    const interval = setInterval(() => loadActivityData(), 4000);
     return () => clearInterval(interval);
-  }, [isAdmin]);
+  }, [isAdmin, user]);
 
   const handleRoleChange = (uid: string, newRole: UserRole) => {
     const updated = updateRegisteredUserRole(uid, newRole);
