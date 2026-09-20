@@ -11,6 +11,15 @@ interface PartnerRegistrationModalProps {
   onPartnerRegistered?: (updatedUser: UserProfile) => void;
 }
 
+const initialFormState = {
+  name: '',
+  category: '',
+  description: '',
+  phone: '',
+  address: '',
+  commune: ''
+};
+
 export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> = ({
   isOpen,
   onClose,
@@ -18,14 +27,7 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
   onPartnerRegistered
 }) => {
   const [submitted, setSubmitted] = useState(false);
-  const [formData, setFormData] = useState({
-    name: user?.fullname || '',
-    category: 'déménagement',
-    description: '',
-    phone: user?.phone || '',
-    address: '',
-    commune: 'Ibanda'
-  });
+  const [formData, setFormData] = useState(initialFormState);
 
   if (!isOpen) return null;
 
@@ -39,6 +41,20 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation stricte : vérifie que tous les champs requis sont remplis
+    if (
+      !formData.name.trim() ||
+      !formData.category ||
+      !formData.description.trim() ||
+      !formData.phone.trim() ||
+      !formData.address.trim() ||
+      !formData.commune
+    ) {
+      alert("Veuillez remplir tous les champs obligatoires du formulaire avant de soumettre.");
+      return;
+    }
+
     const catLabel = categoryLabels[formData.category] || 'Partenaire Habitat';
     try {
       addInquiry({
@@ -67,7 +83,14 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
     } catch (err) {
       console.error('Failed to log partner inquiry:', err);
     }
+
     setSubmitted(true);
+  };
+
+  const handleCloseModal = () => {
+    setSubmitted(false);
+    setFormData(initialFormState); // Réinitialisation complète du formulaire à la fermeture
+    onClose();
   };
 
   return (
@@ -113,10 +136,12 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
                     Catégorie de Service
                   </label>
                   <select
+                    required
                     value={formData.category}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl p-3 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                   >
+                    <option value="" disabled>Sélectionnez une catégorie</option>
                     <option value="déménagement">Déménagement & Transport</option>
                     <option value="matériaux">Quincaillerie & Matériaux</option>
                     <option value="rénovation">Peinture & Rénovation</option>
@@ -130,10 +155,12 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
                     Commune Principale
                   </label>
                   <select
+                    required
                     value={formData.commune}
                     onChange={(e) => setFormData({ ...formData, commune: e.target.value })}
                     className="w-full bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl p-3 text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                   >
+                    <option value="" disabled>Sélectionnez une commune</option>
                     <option value="Ibanda">Ibanda</option>
                     <option value="Kadutu">Kadutu</option>
                     <option value="Bagira">Bagira</option>
@@ -172,7 +199,7 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1.5">
-                    Adresse / Siège à Bukavu
+                    Adresse
                   </label>
                   <input
                     type="text"
@@ -188,7 +215,7 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
               <div className="flex items-center space-x-3 pt-3">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleCloseModal}
                   className="w-1/3 py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-[#252525] dark:hover:bg-[#303030] text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Annuler
@@ -209,14 +236,11 @@ export const PartnerRegistrationModal: React.FC<PartnerRegistrationModalProps> =
                 Candidature Transmise avec Succès !
               </h4>
               <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto leading-relaxed">
-                Merci. Votre demande de partenariat a bien été enregistrée. L'équipe NyumbaLink examinera vos coordonnées et vous contactera au <strong>{formData.phone}</strong> pour l'activation.
+                Merci. Votre demande de partenariat a bien été enregistrée. L'équipe NyumbaLink examinera vos coordonnées.
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  setSubmitted(false);
-                  onClose();
-                }}
+                onClick={handleCloseModal}
                 className="px-6 py-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-xs rounded-xl hover:opacity-90 transition cursor-pointer"
               >
                 Fermer

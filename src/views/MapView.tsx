@@ -8,7 +8,7 @@ import {
   BUKAVU_NEIGHBORHOOD_COORDINATES
 } from '../data/initialProperties';
 import { filterPropertiesList } from '../services/propertyService';
-import { MapPin, Compass, Search, X, Check, Navigation2 } from 'lucide-react';
+import { MapPin, Compass, Search, X, Check, Navigation2, SearchCheck } from 'lucide-react';
 import { formatMarkersCount } from '../utils/text';
 
 interface MapViewProps {
@@ -39,7 +39,6 @@ export const MapView: React.FC<MapViewProps> = ({
 
   const filteredProperties = filterPropertiesList(properties, filterOptions);
 
-  // All Bukavu Neighborhoods list with parent commune
   const allBukavuPlaces = useMemo(() => {
     const list: { name: string; commune: BukavuCommune; coords?: [number, number] }[] = [];
     (Object.keys(BUKAVU_COMMUNES_WITH_NEIGHBORHOODS) as BukavuCommune[]).forEach((commune) => {
@@ -54,7 +53,6 @@ export const MapView: React.FC<MapViewProps> = ({
     return list;
   }, []);
 
-  // Filter suggestions based on query
   const suggestions = useMemo(() => {
     if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase().trim();
@@ -86,7 +84,6 @@ export const MapView: React.FC<MapViewProps> = ({
     }));
   };
 
-  // Neighborhood options for active commune
   const activeNeighborhoods = useMemo(() => {
     if (!filterOptions.commune || filterOptions.commune === 'tous') {
       return [];
@@ -96,7 +93,6 @@ export const MapView: React.FC<MapViewProps> = ({
 
   return (
     <div className="space-y-4 pb-12">
-      {/* Header Bar with Search & Filters */}
       <div className="bg-white dark:bg-[#1e1e1e] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-[#2e2e2e] shadow-xs space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div>
@@ -109,7 +105,6 @@ export const MapView: React.FC<MapViewProps> = ({
             </p>
           </div>
 
-          {/* Search bar with Search Icon */}
           <div className="relative w-full md:w-80">
             <div className="relative flex items-center">
               <div className="absolute left-3 pointer-events-none text-slate-400 dark:text-slate-500">
@@ -137,7 +132,6 @@ export const MapView: React.FC<MapViewProps> = ({
               )}
             </div>
 
-            {/* Suggestions Dropdown */}
             {showSuggestions && suggestions.length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1.5 bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#2e2e2e] rounded-xl shadow-xl z-50 max-h-56 overflow-y-auto">
                 {suggestions.map((place) => (
@@ -161,7 +155,6 @@ export const MapView: React.FC<MapViewProps> = ({
           </div>
         </div>
 
-        {/* Commune & Neighborhood Selectors */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 dark:border-[#252525]">
           <div className="flex items-center space-x-1.5 text-slate-700 dark:text-slate-300 text-xs font-bold shrink-0">
             <Compass className="w-3.5 h-3.5 text-[#FF385C]" />
@@ -201,7 +194,6 @@ export const MapView: React.FC<MapViewProps> = ({
             );
           })}
 
-          {/* Neighborhood filter dropdown if a commune is selected */}
           {activeNeighborhoods.length > 0 && (
             <div className="flex items-center space-x-2 ml-auto">
               <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Quartier :</span>
@@ -228,22 +220,43 @@ export const MapView: React.FC<MapViewProps> = ({
         </div>
       </div>
 
-      {/* Map + Sidebar Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Full Interactive Map */}
-        <div className="lg:col-span-8 rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1e1e1e]">
-          <PropertyMap
-            properties={filteredProperties}
-            selectedProperty={selectedProperty}
-            centerCoordinates={searchedCoordinates}
-            onSelectProperty={(p) => {
-              setSelectedProperty(p);
-            }}
-            height="620px"
-          />
+        <div className="lg:col-span-8 space-y-3">
+          {/* Bouton de recherche sur la carte ajouté juste avant la carte interactive */}
+          <div className="flex items-center justify-between bg-white dark:bg-[#1e1e1e] p-3 rounded-xl border border-slate-200 dark:border-[#2e2e2e] shadow-2xs">
+            <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+              <SearchCheck className="w-4 h-4 text-[#FF385C]" />
+              <span>Trouver un lieu ou un quartier rapidement sur la carte</span>
+            </div>
+            <button
+              onClick={() => {
+                if (filterOptions.neighborhood && filterOptions.neighborhood !== 'tous' && BUKAVU_NEIGHBORHOOD_COORDINATES[filterOptions.neighborhood]) {
+                  setSearchedCoordinates(BUKAVU_NEIGHBORHOOD_COORDINATES[filterOptions.neighborhood]);
+                } else if (filterOptions.commune && filterOptions.commune !== 'tous') {
+                  // Centre par défaut de la commune sélectionnée
+                  setSearchedCoordinates([-2.5080, 28.8600]);
+                }
+              }}
+              className="bg-[#FF385C]/10 hover:bg-[#FF385C]/20 text-[#FF385C] border border-[#FF385C]/30 px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Rechercher sur la carte</span>
+            </button>
+          </div>
+
+          <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200 dark:border-[#2e2e2e] bg-white dark:bg-[#1e1e1e]">
+            <PropertyMap
+              properties={filteredProperties}
+              selectedProperty={selectedProperty}
+              centerCoordinates={searchedCoordinates}
+              onSelectProperty={(p) => {
+                setSelectedProperty(p);
+              }}
+              height="580px"
+            />
+          </div>
         </div>
 
-        {/* Selected / List Sidebar */}
         <div className="lg:col-span-4 space-y-4 max-h-[620px] overflow-y-auto pr-1">
           <div className="bg-white dark:bg-[#1e1e1e] p-3.5 rounded-xl border border-slate-200 dark:border-[#2e2e2e] flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
             <span>{formatMarkersCount(filteredProperties.length)}</span>

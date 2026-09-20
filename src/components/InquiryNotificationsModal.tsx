@@ -317,15 +317,17 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                     (item.propertyTitle || '').toLowerCase().includes('partenaire');
                   const clientName = item.senderName === 'Client WhatsApp' ? 'Client' : item.senderName;
 
-                  let digits = (item.senderPhone || '').replace(/\D/g, '');
-                  if (digits.startsWith('0')) {
-                    digits = '243' + digits.substring(1);
-                  } else if (!digits.startsWith('243') && digits.length === 9) {
-                    digits = '243' + digits;
+                  // Extraction stricte et propre du numéro du client
+                  let rawPhone = (item.senderPhone || '').replace(/\D/g, '');
+                  if (rawPhone.startsWith('0')) {
+                    rawPhone = '243' + rawPhone.substring(1);
+                  } else if (!rawPhone.startsWith('243') && rawPhone.length === 9) {
+                    rawPhone = '243' + rawPhone;
                   }
-                  const cleanDigits = digits;
+                  const clientPhone = rawPhone; // Sera vide si aucun numéro n'a été fourni
+
+                  const ADMIN_DEFAULT_PHONE = '243986760178';
                   const agentDigits = (item.propertyOwnerPhone || '').replace(/\D/g, '');
-                  const whatsappDigits = isClientView ? agentDigits : cleanDigits;
 
                   return (
                     <div
@@ -432,20 +434,51 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                             </button>
                           )}
 
-                          {/* Bouton Répondre sur WhatsApp */}
-                          <a
-                            href={whatsappDigits ? `https://api.whatsapp.com/send?phone=${whatsappDigits}&text=${encodeURIComponent(
-                              isClientView
-                                ? `Bonjour, je fais suite à ma demande sur NyumbaLink pour : ${item.propertyTitle}`
-                                : `Bonjour ${item.senderName}, je fais suite à votre message sur NyumbaLink.`
-                            )}` : '#'}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={`text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs ${whatsappDigits ? 'bg-[#25D366] hover:bg-[#20bd5a] cursor-pointer' : 'bg-slate-400 cursor-not-allowed'}`}
-                          >
-                            <span>WhatsApp</span>
-                            <ExternalLink className="w-3 h-3 ml-0.5" />
-                          </a>
+                          {/* Bouton WhatsApp avec gestion étanche des numéros manquants */}
+                          {isClientView ? (
+                            <a
+                              href={`https://api.whatsapp.com/send?phone=${agentDigits || ADMIN_DEFAULT_PHONE}&text=${encodeURIComponent(
+                                `Bonjour, je fais suite à ma demande sur NyumbaLink pour : ${item.propertyTitle}`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
+                            >
+                              <span>WhatsApp</span>
+                              <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </a>
+                          ) : isPartnerRequest ? (
+                            <a
+                              href={`https://api.whatsapp.com/send?phone=${ADMIN_DEFAULT_PHONE}&text=${encodeURIComponent(
+                                `Bonjour ${item.senderName}, je fais suite à votre demande de partenariat sur NyumbaLink.`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
+                            >
+                              <span>WhatsApp</span>
+                              <ExternalLink className="w-3 h-3 ml-0.5" />
+                            </a>
+                          ) : (
+                            /* Vue Admin ou Agent consultant la demande d'un client */
+                            clientPhone ? (
+                              <a
+                                href={`https://api.whatsapp.com/send?phone=${clientPhone}&text=${encodeURIComponent(
+                                  `Bonjour ${item.senderName}, je fais suite à votre message sur NyumbaLink.`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
+                              >
+                                <span>WhatsApp Client</span>
+                                <ExternalLink className="w-3 h-3 ml-0.5" />
+                              </a>
+                            ) : (
+                              <span className="bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 text-[11px] font-bold px-3 py-1.5 rounded-xl cursor-not-allowed">
+                                Numéro non enregistré
+                              </span>
+                            )
+                          )}
 
                           {/* Bouton "Ajouter Agent" si c'est une demande de partenariat/agent par un admin */}
                           {user?.role === 'admin' && isPartnerRequest && item.senderUid && (

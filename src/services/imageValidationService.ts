@@ -1,8 +1,8 @@
 /**
- * Service de validation intelligente IA des images immobilières pour NyumbaLink Bukavu
- * Vérifie que l'image correspond bien à un bien immobilier (maison, parcelle, appartement, villa, intérieur, terrain)
- * et bloque la publication si l'image représente un selfie, un paysage non lié, un animal ou un objet personnel.
+ * Service de validation intelligente IA des images immobilières pour NyumbaLink Bukavu via Gemini Vision
  */
+
+import { GoogleGenAI } from "@google/genai";
 
 export interface ImageValidationResult {
   isRealEstate: boolean;
@@ -12,15 +12,33 @@ export interface ImageValidationResult {
   reason: string;
 }
 
-/**
- * Convertit un objet File ou Blob en chaîne base64
- */
+const getApiKey = () => {
+  try {
+    if (typeof process !== 'undefined' && process.env?.REACT_APP_GEMINI_API_KEY) {
+      return process.env.REACT_APP_GEMINI_API_KEY;
+    }
+  } catch (e) {}
+  try {
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY) {
+      // @ts-ignore
+      return import.meta.env.VITE_GEMINI_API_KEY;
+    }
+  } catch (e) {}
+  return '';
+};
+
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
+
 export function fileToBase64(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        resolve(reader.result);
+        const base64Data = reader.result.includes(',') 
+          ? reader.result.split(',')[1] 
+          : reader.result;
+        resolve(base64Data);
       } else {
         reject(new Error('Échec de la conversion du fichier en base64.'));
       }
@@ -30,119 +48,85 @@ export function fileToBase64(file: File | Blob): Promise<string> {
   });
 }
 
-/**
- * Valide si une image donnée (File ou DataURL Base64) représente un bien immobilier via l'IA Gemini
- */
 export async function validatePropertyImageWithAI(
   fileOrBase64OrUrl: File | string
 ): Promise<ImageValidationResult> {
   try {
-    let payload: { imageBase64?: string; imageUrl?: string; mode?: string } = { mode: 'property' };
+    let base64Data = '';
+    let mimeType = 'image/jpeg';
 
     if (typeof fileOrBase64OrUrl === 'string') {
       if (fileOrBase64OrUrl.startsWith('http://') || fileOrBase64OrUrl.startsWith('https://')) {
-        payload.imageUrl = fileOrBase64OrUrl;
+        if (fileOrBase64OrUrl.startsWith('data:')) {
+          const parts = fileOrBase64OrUrl.split(',');
+          mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
+          base64Data = parts[1];
+        } else {
+          return {
+            isRealEstate: true,
+            confidence: 0.9,
+            detectedCategory: 'immobilier',
+            reason: "URL acceptée."
+          };
+        }
       } else {
-        payload.imageBase64 = fileOrBase64OrUrl;
+        base64Data = fileOrBase64OrUrl.includes(',') ? fileOrBase64OrUrl.split(',')[1] : fileOrBase64OrUrl;
       }
     } else {
-      const b64 = await fileToBase64(fileOrBase64OrUrl);
-      payload.imageBase64 = b64;
+      mimeType = fileOrBase64OrUrl.type || 'image/jpeg';
+      base64Data = await fileToBase64(fileOrBase64OrUrl);
     }
 
-    const response = await fetch('/api/ai/validate-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType: mimeType
+          }
+        },
+        {
+          text: `Analyse cette image. Est-ce un bien immobilier (maison, immeuble, villa, appartement, parcelle, terrain) OU un document/papier écrit (contrat, plan, titre foncier) OU une illustration/rendu 3D de maison (provenant d'IA comme ChatGPT ou Gemini) ?
+Si OUI (c'est une maison, un bâtiment, une parcelle, un plan ou un document écrit), réponds par true.
+Si c'est un selfie, une personne seule, un animal, un véhicule seul ou un appareil électronique sans lien avec l'immobilier, réponds par false.
+
+Réponds STRICTEMENT au format JSON brut, sans markdown, avec ces clés :
+{"isRealEstate": true ou false, "confidence": 0.9, "reason": "explication courte"}`
+        }
+      ]
     });
 
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok || !data) {
-      return {
-        isRealEstate: true,
-        confidence: 0.9,
-        detectedCategory: 'immobilier',
-        reason: "Photo immobilière acceptée."
-      };
+    const textResponse = response.text?.trim() || '';
+    // Nettoyage robuste pour extraire le JSON même si l'IA ajoute des balises
+    const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error("Format de réponse de l'IA invalide");
     }
+    
+    const data = JSON.parse(jsonMatch[0]);
 
     return {
       isRealEstate: Boolean(data.isRealEstate),
       confidence: typeof data.confidence === 'number' ? data.confidence : 0.9,
-      detectedCategory: data.detectedCategory || (data.isRealEstate ? 'immobilier' : 'non-conforme'),
-      reason: data.reason || (data.isRealEstate ? 'Photo immobilière vérifiée et acceptée.' : 'Photo non conforme.')
+      detectedCategory: data.isRealEstate ? 'immobilier' : 'non-conforme',
+      reason: data.reason || (data.isRealEstate ? 'Image acceptée.' : 'Image refusée : seuls les biens immobiliers, documents et illustrations de maisons sont acceptés.')
     };
+
   } catch (error: any) {
-    console.warn('[ImageValidation] Erreur lors de la vérification, acceptation automatique:', error);
+    console.warn('[ImageValidation] Erreur lors de l’analyse Gemini, basculement sécurisé sur l\'acceptation de l\'image :', error);
+    // En cas d'erreur de parsing ou de réseau, on autorise l'image pour éviter de bloquer l'utilisateur inutilement
     return {
       isRealEstate: true,
-      confidence: 0.85,
+      confidence: 0.8,
       detectedCategory: 'immobilier',
-      reason: "Photo acceptée."
+      reason: "Image acceptée."
     };
   }
 }
 
-/**
- * Valide si une image donnée représente bien un meuble, équipement ou appareil électroménager
- */
 export async function validateFurnitureImageWithAI(
   fileOrBase64OrUrl: File | string
 ): Promise<ImageValidationResult> {
-  try {
-    let payload: { imageBase64?: string; imageUrl?: string; mode?: string } = { mode: 'furniture' };
-
-    if (typeof fileOrBase64OrUrl === 'string') {
-      if (fileOrBase64OrUrl.startsWith('http://') || fileOrBase64OrUrl.startsWith('https://')) {
-        payload.imageUrl = fileOrBase64OrUrl;
-      } else {
-        payload.imageBase64 = fileOrBase64OrUrl;
-      }
-    } else {
-      const b64 = await fileToBase64(fileOrBase64OrUrl);
-      payload.imageBase64 = b64;
-    }
-
-    const response = await fetch('/api/ai/validate-image', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const data = await response.json().catch(() => null);
-
-    if (!response.ok || !data) {
-      return {
-        isRealEstate: true,
-        isFurniture: true,
-        confidence: 0.9,
-        detectedCategory: 'mobilier',
-        reason: "Photo de mobilier acceptée."
-      };
-    }
-
-    const isFurniture = Boolean(data.isFurniture !== undefined ? data.isFurniture : data.isRealEstate);
-
-    return {
-      isRealEstate: isFurniture,
-      isFurniture,
-      confidence: typeof data.confidence === 'number' ? data.confidence : 0.9,
-      detectedCategory: data.detectedCategory || (isFurniture ? 'mobilier' : 'non_mobilier'),
-      reason: data.reason || (isFurniture ? 'Photo de meuble/équipement vérifiée et acceptée.' : 'Photo non conforme pour du mobilier.')
-    };
-  } catch (error: any) {
-    console.warn('[FurnitureValidation] Erreur lors de la vérification:', error);
-    return {
-      isRealEstate: true,
-      isFurniture: true,
-      confidence: 0.85,
-      detectedCategory: 'mobilier',
-      reason: "Photo acceptée."
-    };
-  }
+  return validatePropertyImageWithAI(fileOrBase64OrUrl);
 }
