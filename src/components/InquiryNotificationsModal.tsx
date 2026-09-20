@@ -1,22 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   MessageSquare,
-  Mail,
   Trash2,
   CheckCheck,
   ExternalLink,
   MapPin,
   Clock,
   Send,
-  Calendar,
   Check,
-  Copy,
   CornerDownRight,
   Building2,
   FileText,
-  AlertTriangle,
-  RefreshCw,
-  AlertCircle,
   ArrowRight,
   UserCheck
 } from 'lucide-react';
@@ -29,11 +23,9 @@ import {
 } from '../services/inquiryService';
 import {
   RentalContract,
-  getUserContracts,
   getContractNotifications,
   createContract,
-  deleteContract,
-  getDaysRemaining
+  deleteContract
 } from '../services/contractService';
 import { UserProfile, UserRole } from '../types';
 import { updateRegisteredUserRole } from '../services/activityService';
@@ -190,10 +182,10 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
       return;
     }
     try {
-      updateRegisteredUserRole(senderUid, 'agent' as UserRole);
+      await updateRegisteredUserRole(senderUid, 'agent' as UserRole);
       await updateUserRoleInFirestore(senderUid, 'agent' as UserRole);
       showToast(`${senderName} a été promu Agent avec succès !`);
-    } catch (e) {
+    } catch {
       showToast('Erreur lors de la promotion en agent.');
     }
   };
@@ -312,22 +304,27 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
               ) : (
                 filteredInquiries.map((item) => {
                   const isPartnerRequest =
+                    item.isPartnerRequest ||
                     item.propertyId === 'partner-request' ||
                     item.propertyId === 'b2b-partner-request' ||
                     (item.propertyTitle || '').toLowerCase().includes('partenaire');
                   const clientName = item.senderName === 'Client WhatsApp' ? 'Client' : item.senderName;
 
-                  // Extraction stricte et propre du numéro du client
-                  let rawPhone = (item.senderPhone || '').replace(/\D/g, '');
-                  if (rawPhone.startsWith('0')) {
-                    rawPhone = '243' + rawPhone.substring(1);
-                  } else if (!rawPhone.startsWith('243') && rawPhone.length === 9) {
-                    rawPhone = '243' + rawPhone;
+                  let rawClientPhone = (item.senderPhone || '').replace(/\D/g, '');
+                  if (rawClientPhone.startsWith('0')) {
+                    rawClientPhone = '243' + rawClientPhone.substring(1);
+                  } else if (!rawClientPhone.startsWith('243') && rawClientPhone.length === 9) {
+                    rawClientPhone = '243' + rawClientPhone;
                   }
-                  const clientPhone = rawPhone; // Sera vide si aucun numéro n'a été fourni
+                  const clientPhone = rawClientPhone.length >= 10 && rawClientPhone !== '243986760178' ? rawClientPhone : '';
 
-                  const ADMIN_DEFAULT_PHONE = '243986760178';
-                  const agentDigits = (item.propertyOwnerPhone || '').replace(/\D/g, '');
+                  let rawOwnerPhone = (item.propertyOwnerPhone || '').replace(/\D/g, '');
+                  if (rawOwnerPhone.startsWith('0')) {
+                    rawOwnerPhone = '243' + rawOwnerPhone.substring(1);
+                  } else if (!rawOwnerPhone.startsWith('243') && rawOwnerPhone.length === 9) {
+                    rawOwnerPhone = '243' + rawOwnerPhone;
+                  }
+                  const ownerPhone = rawOwnerPhone.length >= 10 && rawOwnerPhone !== '243986760178' ? rawOwnerPhone : '';
 
                   return (
                     <div
@@ -390,7 +387,6 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                         </div>
                       )}
 
-                      {/* Champ de réponse dans l'application si activé */}
                       {replyingToId === item.id && (
                         <div className="mt-3 p-3 bg-white dark:bg-[#252525] rounded-xl border border-gray-200 dark:border-white/10 space-y-2">
                           <textarea
@@ -404,14 +400,14 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                             <button
                               type="button"
                               onClick={() => setReplyingToId(null)}
-                              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-xs font-bold rounded-lg"
+                              className="px-3 py-1 bg-gray-200 dark:bg-gray-700 text-xs font-bold rounded-lg cursor-pointer"
                             >
                               Annuler
                             </button>
                             <button
                               type="button"
                               onClick={() => handleSendReply(item.id)}
-                              className="px-3 py-1 bg-[#FF385C] text-white text-xs font-bold rounded-lg flex items-center space-x-1"
+                              className="px-3 py-1 bg-[#FF385C] text-white text-xs font-bold rounded-lg flex items-center space-x-1 cursor-pointer"
                             >
                               <Send className="w-3 h-3" />
                               <span>Envoyer</span>
@@ -422,7 +418,6 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
 
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-3 mt-2 border-t border-gray-100 dark:border-white/10">
                         <div className="flex items-center space-x-2 flex-wrap gap-y-2">
-                          {/* Bouton Répondre dans l'app */}
                           {isAdminOrAgent && (
                             <button
                               type="button"
@@ -434,57 +429,42 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                             </button>
                           )}
 
-                          {/* Bouton WhatsApp avec gestion étanche des numéros manquants */}
                           {isClientView ? (
-                            <a
-                              href={`https://api.whatsapp.com/send?phone=${agentDigits || ADMIN_DEFAULT_PHONE}&text=${encodeURIComponent(
-                                `Bonjour, je fais suite à ma demande sur NyumbaLink pour : ${item.propertyTitle}`
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
-                            >
-                              <span>WhatsApp</span>
-                              <ExternalLink className="w-3 h-3 ml-0.5" />
-                            </a>
-                          ) : isPartnerRequest ? (
-                            <a
-                              href={`https://api.whatsapp.com/send?phone=${ADMIN_DEFAULT_PHONE}&text=${encodeURIComponent(
-                                `Bonjour ${item.senderName}, je fais suite à votre demande de partenariat sur NyumbaLink.`
-                              )}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
-                            >
-                              <span>WhatsApp</span>
-                              <ExternalLink className="w-3 h-3 ml-0.5" />
-                            </a>
-                          ) : (
-                            /* Vue Admin ou Agent consultant la demande d'un client */
-                            clientPhone ? (
+                            ownerPhone ? (
                               <a
-                                href={`https://api.whatsapp.com/send?phone=${clientPhone}&text=${encodeURIComponent(
-                                  `Bonjour ${item.senderName}, je fais suite à votre message sur NyumbaLink.`
+                                href={`https://api.whatsapp.com/send?phone=${ownerPhone}&text=${encodeURIComponent(
+                                  `Bonjour, je fais suite à ma demande sur NyumbaLink pour : ${item.propertyTitle}`
                                 )}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
                               >
-                                <span>WhatsApp Client</span>
+                                <span>WhatsApp</span>
                                 <ExternalLink className="w-3 h-3 ml-0.5" />
                               </a>
-                            ) : (
-                              <span className="bg-slate-200 dark:bg-white/10 text-slate-400 dark:text-slate-500 text-[11px] font-bold px-3 py-1.5 rounded-xl cursor-not-allowed">
-                                Numéro non enregistré
-                              </span>
-                            )
+                            ) : null
+                          ) : (
+                            clientPhone ? (
+                              <a
+                                href={`https://api.whatsapp.com/send?phone=${clientPhone}&text=${encodeURIComponent(
+                                  isPartnerRequest 
+                                    ? `Bonjour ${item.senderName}, je fais suite à votre demande de partenariat sur NyumbaLink.` 
+                                    : `Bonjour ${item.senderName}, je fais suite à votre message sur NyumbaLink.`
+                                )}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-[#25D366] hover:bg-[#20bd5a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
+                              >
+                                <span>WhatsApp</span>
+                                <ExternalLink className="w-3 h-3 ml-0.5" />
+                              </a>
+                            ) : null
                           )}
 
-                          {/* Bouton "Ajouter Agent" si c'est une demande de partenariat/agent par un admin */}
                           {user?.role === 'admin' && isPartnerRequest && item.senderUid && (
                             <button
                               type="button"
-                              onClick={() => handlePromoteToAgent(item.senderUid, item.senderName)}
+                              onClick={() => handlePromoteToAgent(item.senderUid!, item.senderName)}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-3.5 py-1.5 rounded-xl flex items-center space-x-1 transition shadow-xs cursor-pointer"
                             >
                               <UserCheck className="w-3.5 h-3.5" />
@@ -549,7 +529,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                           <button
                             type="button"
                             onClick={() => handleConfirmContract(alert.contract)}
-                            className="bg-emerald-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center space-x-1.5"
+                            className="bg-emerald-600 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center space-x-1.5 cursor-pointer"
                           >
                             <Check className="w-3.5 h-3.5" />
                             <span>Confirmer</span>
@@ -559,7 +539,7 @@ export const InquiryNotificationsModal: React.FC<InquiryNotificationsModalProps>
                           <button
                             type="button"
                             onClick={handleConsultContract}
-                            className="bg-[#FF385C] text-white text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center space-x-1.5"
+                            className="bg-[#FF385C] text-white text-xs font-bold px-3.5 py-1.5 rounded-xl flex items-center space-x-1.5 cursor-pointer"
                           >
                             <span>Consulter</span>
                             <ArrowRight className="w-3.5 h-3.5" />
