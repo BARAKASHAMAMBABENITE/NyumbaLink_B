@@ -243,4 +243,3 @@ export const replyToInquiry = async (
     });
     saveLocalInquiries(updated);
   }
-};
