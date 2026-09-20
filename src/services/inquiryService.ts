@@ -198,7 +198,7 @@ export const deleteInquiry = async (id: string, userUid: string): Promise<void> 
     const updated = items.map((i) => {
       if (i.id === id) {
         const deletedFor = i.deletedFor || [];
-        if (!deletedFor.includes(userUid)) deletedFor.includes(userUid) || deletedFor.push(userUid);
+        if (!deletedFor.includes(userUid)) deletedFor.push(userUid);
         return { ...i, deletedFor };
       }
       return i;
@@ -243,3 +243,59 @@ export const replyToInquiry = async (
     });
     saveLocalInquiries(updated);
   }
+};
+
+export const addInquiry = async (inquiryData: Omit<InquiryMessage, 'id' | 'createdAt' | 'isRead'>): Promise<string> => {
+  const newId = 'inq-' + Date.now();
+  const newInquiry: InquiryMessage = {
+    ...inquiryData,
+    id: newId,
+    createdAt: new Date().toISOString(),
+    isRead: false,
+    readBy: [],
+    deletedFor: []
+  };
+
+  try {
+    const docRef = doc(db, INQUIRIES_COLLECTION, newId);
+    await setDoc(docRef, cleanInquiry(newInquiry));
+
+    if (newInquiry.propertyOwnerId) {
+      await notifyNewInquiryReceived(
+        newInquiry.propertyOwnerId,
+        newInquiry.propertyTitle,
+        newInquiry.senderName
+      );
+    }
+  } catch (err) {
+    console.warn('Firestore add inquiry failed, saving locally:', err);
+    const items = getLocalInquiries();
+    saveLocalInquiries([newInquiry, ...items]);
+  }
+
+  return newId;
+};
+
+export const updateContractInquiryStatus = async (
+  inquiryId: string, 
+  contractId: string, 
+  status: 'pending' | 'active' | 'terminated'
+): Promise<void> => {
+  try {
+    const docRef = doc(db, INQUIRIES_COLLECTION, inquiryId);
+    await updateDoc(docRef, {
+      contractId,
+      contractStatus: status
+    });
+  } catch (err) {
+    console.warn('Firestore update contract inquiry status failed, updating locally:', err);
+    const items = getLocalInquiries();
+    const updated = items.map((i) => {
+      if (i.id === inquiryId) {
+        return { ...i, contractId, contractStatus: status };
+      }
+      return i;
+    });
+    saveLocalInquiries(updated);
+  }
+};
