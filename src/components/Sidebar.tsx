@@ -122,12 +122,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Sidebar: Visible docked on PC and tablet (md:), slide-out drawer on mobile */}
       <aside
         id="app-sidebar"
-        className={`fixed md:sticky top-0 left-0 bottom-0 md:bottom-auto h-screen z-50 md:z-30 w-72 sm:w-80 md:w-64 lg:w-72 bg-white dark:bg-[#181818] border-r border-[#ebebeb] dark:border-[#2b2b2b] shadow-2xl md:shadow-none flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 overflow-y-auto ${
+        className={`fixed md:sticky top-0 left-0 bottom-0 md:bottom-auto h-screen z-50 md:z-30 w-72 sm:w-80 md:w-64 lg:w-72 bg-white dark:bg-[#181818] border-r border-[#ebebeb] dark:border-[#2b2b2b] shadow-2xl md:shadow-none flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Sidebar Header */}
-        <div className="p-4 sm:p-5 border-b border-[#ebebeb] dark:border-[#2b2b2b] flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-[#ebebeb] dark:border-[#2b2b2b] flex items-center justify-between shrink-0">
           <div
             onClick={() => handleNavClick('home')}
             className="cursor-pointer group"
@@ -161,7 +161,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Home className={`w-4 h-4 ${currentTab === 'home' ? 'text-white' : 'text-[#FF385C]'}`} />
               <span>{language === 'en' ? 'Home' : language === 'sw' ? 'Nyumbani' : 'Accueil'}</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'home' ? 'text-white' : ''}`} />
           </button>
 
           {/* 2. Annonces */}
@@ -176,19 +175,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <Building2 className={`w-4 h-4 ${currentTab === 'listings' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Listings' : language === 'sw' ? 'Matangazo' : 'Toutes les Annonces'}</span>
+              <span>{language === 'en' ? 'Listings' : language === 'sw' ? 'Mali' : 'Annonces'}</span>
             </div>
-            {unreadNewPropertiesCount > 0 ? (
-              <span className="flex items-center space-x-0.5 bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                <Sparkles className="w-2.5 h-2.5" />
-                <span>{unreadNewPropertiesCount}</span>
+            {unreadNewPropertiesCount > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] font-black bg-emerald-500 text-white rounded-full animate-pulse">
+                +{unreadNewPropertiesCount}
               </span>
-            ) : (
-              <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'listings' ? 'text-white' : ''}`} />
             )}
           </button>
 
-          {/* 3. Carte Interactive */}
+          {/* 3. Carte */}
           <button
             type="button"
             onClick={() => handleNavClick('map')}
@@ -200,9 +196,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <MapPin className={`w-4 h-4 ${currentTab === 'map' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Interactive Map' : language === 'sw' ? 'Ramani ya Maingiliano' : 'Carte Interactive'}</span>
+              <span>{language === 'en' ? 'Map' : language === 'sw' ? 'Ramani' : 'Carte interactive'}</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'map' ? 'text-white' : ''}`} />
           </button>
 
           {/* 4. Favoris */}
@@ -217,24 +212,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <Heart className={`w-4 h-4 ${currentTab === 'favorites' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Favorites' : language === 'sw' ? 'Vipendwa' : 'Mes Favoris'}</span>
+              <span>{language === 'en' ? 'Favorites' : language === 'sw' ? 'Vipendwa' : 'Favoris'}</span>
             </div>
-            {favoritesCount > 0 ? (
-              <span
-                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
-                  currentTab === 'favorites'
-                    ? 'bg-white text-[#FF385C]'
-                    : 'bg-[#FF385C] text-white'
-                }`}
-              >
+            {favoritesCount > 0 && (
+              <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${currentTab === 'favorites' ? 'bg-white text-[#FF385C]' : 'bg-[#FF385C]/10 text-[#FF385C]'}`}>
                 {favoritesCount}
               </span>
-            ) : (
-              <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'favorites' ? 'text-white' : ''}`} />
             )}
           </button>
 
-          {/* Contrats de Location */}
+          {/* 5. Tableau de bord */}
+          <button
+            type="button"
+            onClick={() => handleNavClick('dashboard')}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
+              currentTab === 'dashboard'
+                ? 'bg-[#FF385C] text-white shadow-sm'
+                : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5'
+            }`}
+          >
+            <div className="flex items-center space-x-3">
+              <dashboardInfo.icon className={`w-4 h-4 ${currentTab === 'dashboard' ? 'text-white' : 'text-[#FF385C]'}`} />
+              <div className="text-left">
+                <div>{dashboardInfo.label}</div>
+              </div>
+            </div>
+          </button>
+
+          {/* 6. Contrats & Baux */}
           <button
             type="button"
             onClick={() => handleNavClick('contracts')}
@@ -246,94 +251,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <FileText className={`w-4 h-4 ${currentTab === 'contracts' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Rental Contracts' : language === 'sw' ? 'Mikataba ya Upangishaji' : 'Contrats de Location'}</span>
+              <span>{language === 'en' ? 'Contracts & Leases' : language === 'sw' ? 'Mikataba' : 'Contrats & Baux'}</span>
             </div>
-            {contractAlertsCount > 0 ? (
-              <span className="flex items-center space-x-1 bg-rose-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse shadow-xs">
-                <span>{contractAlertsCount}</span>
+            {contractAlertsCount > 0 && (
+              <span className="px-1.5 py-0.5 text-[10px] font-black bg-amber-500 text-white rounded-full animate-bounce">
+                {contractAlertsCount}
               </span>
-            ) : (
-              <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'contracts' ? 'text-white' : ''}`} />
             )}
           </button>
 
-          {/* Espace Partenaires & Mobilier */}
-          {openPartnerModal && (
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  onClose();
-                }
-                openPartnerModal();
-              }}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
-            >
-              <div className="flex items-center space-x-3">
-                <Building2 className="w-4 h-4 text-[#FF385C]" />
-                <span>{language === 'en' ? 'Become Partner' : 'Devenir Partenaire'}</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-50" />
-            </button>
-          )}
-
-          {/* Mobilier & Équipements */}
-          {openPartnerFurnitureModal && (
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                  onClose();
-                }
-                openPartnerFurnitureModal();
-              }}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5"
-            >
-              <div className="flex items-center space-x-3">
-                <Sofa className="w-4 h-4 text-[#FF385C]" />
-                <span>{language === 'en' ? 'Furniture & Gear' : 'Mobilier & Partenaires'}</span>
-              </div>
-              <ChevronRight className="w-3.5 h-3.5 opacity-50" />
-            </button>
-          )}
-
-          {/* 5. TABLEAU DE BORD */}
-          <button
-            type="button"
-            onClick={() => {
-              if (!user) {
-                openAuthModal();
-                onClose();
-              } else {
-                handleNavClick('dashboard');
-              }
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              currentTab === 'dashboard'
-                ? 'bg-[#FF385C] text-white shadow-sm'
-                : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5'
-            }`}
-          >
-            <div className="flex items-center space-x-3">
-              <LayoutDashboard className={`w-4 h-4 ${currentTab === 'dashboard' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Dashboard' : 'Tableau de bord'}</span>
-            </div>
-            {dashboardInfo.badge ? (
-              <span
-                className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
-                  currentTab === 'dashboard'
-                    ? 'bg-white text-[#FF385C]'
-                    : 'bg-[#FF385C]/15 text-[#FF385C]'
-                }`}
-              >
-                {dashboardInfo.badge}
-              </span>
-            ) : (
-              <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'dashboard' ? 'text-white' : ''}`} />
-            )}
-          </button>
-
-          {/* 6. Paramètres */}
+          {/* 7. Paramètres */}
           <button
             type="button"
             onClick={() => handleNavClick('settings')}
@@ -345,34 +272,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div className="flex items-center space-x-3">
               <Settings className={`w-4 h-4 ${currentTab === 'settings' ? 'text-white' : 'text-[#FF385C]'}`} />
-              <span>{language === 'en' ? 'Settings & Trash' : 'Paramètres & Corbeille'}</span>
+              <span>{language === 'en' ? 'Settings' : language === 'sw' ? 'Mipangilio' : 'Paramètres'}</span>
             </div>
-            <ChevronRight className={`w-3.5 h-3.5 opacity-50 ${currentTab === 'settings' ? 'text-white' : ''}`} />
           </button>
 
-          {/* Quick Publish Action inside Sidebar */}
-          {(user?.role === 'agent' || user?.role === 'bailleur' || user?.role === 'admin' || user?.canPublish) && (
-            <div className="pt-2">
+          {/* 8. Bouton d'action (Publier ou Connexion) placé en dessous des autres onglets */}
+          <div className="pt-3 mt-3 border-t border-[#ebebeb] dark:border-[#2b2b2b]">
+            {user ? (
               <button
                 type="button"
-                onClick={() => {
-                  onClose();
-                  openAddPropertyModal();
-                }}
-                className="w-full py-2.5 bg-gradient-to-r from-[#FF385C] to-[#E00B41] hover:opacity-95 text-white rounded-xl text-xs font-bold transition shadow-sm flex items-center justify-center space-x-2 cursor-pointer"
+                onClick={openAddPropertyModal}
+                className="w-full flex items-center justify-center space-x-2 py-2.5 px-3 bg-[#FF385C] hover:bg-[#E00B3D] text-white rounded-xl text-xs font-black transition shadow-sm cursor-pointer"
               >
                 <PlusCircle className="w-4 h-4" />
-                <span>{language === 'en' ? 'Publish' : 'Publier un bien'}</span>
+                <span>Publier une annonce</span>
               </button>
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar Footer */}
-        <div className="p-3.5 border-t border-[#ebebeb] dark:border-[#2b2b2b] bg-slate-50/50 dark:bg-[#161616]/50">
-          <p className="text-[10px] text-center text-slate-500 dark:text-slate-400 font-medium">
-            NyumbaLink • Bukavu (Ibanda, Kadutu, Bagira)
-          </p>
+            ) : (
+              <button
+                type="button"
+                onClick={openAuthModal}
+                className="w-full flex items-center justify-center space-x-2 py-2.5 px-3 bg-[#FF385C] hover:bg-[#E00B3D] text-white rounded-xl text-xs font-black transition shadow-sm cursor-pointer"
+              >
+                <User className="w-4 h-4" />
+                <span>Connexion / Inscription</span>
+              </button>
+            )}
+          </div>
         </div>
       </aside>
     </>

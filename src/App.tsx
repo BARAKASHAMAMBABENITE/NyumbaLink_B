@@ -468,7 +468,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#f7f7f7] dark:bg-[#121212] text-[#222222] dark:text-[#f7f7f7] selection:bg-[#FF385C] selection:text-white transition-colors">
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-[#f7f7f7] dark:bg-[#121212] text-[#222222] dark:text-[#f7f7f7] selection:bg-[#FF385C] selection:text-white transition-colors">
       {/* Onboarding / Splash Screen Component (displays on initial arrival before auth) */}
       <OnboardingSplashScreen
         isOpen={onboardingOpen}
@@ -498,7 +498,7 @@ export default function App() {
       />
 
       {/* Main Content Area (Navbar, View Router, Footer) */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
         {/* Top Header Navbar */}
         <Navbar
           currentTab={currentTab}
@@ -518,8 +518,8 @@ export default function App() {
           onToggleSidebar={() => setSidebarOpen(true)}
         />
 
-        {/* Main Content Router */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
+        {/* Main Content Router with Independent Scroll */}
+        <main className="flex-1 overflow-y-auto max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
         {currentTab === 'listings' ? (
           <ListingsView
             properties={properties}
@@ -615,14 +615,13 @@ export default function App() {
             user={user}
           />
         )}
-      </main>
 
         {/* Footer */}
         <Footer />
+        </main>
       </div>
 
       {/* Modals */}
-      {/* 0. Écran de Bienvenue NyumbaLink */}
       <OnboardingSplashScreen
         isOpen={onboardingOpen}
         onGetStarted={() => {
@@ -724,7 +723,6 @@ export default function App() {
         isAdminMode={false}
       />
 
-      {/* Progressive Web App Install Banner & Service Worker Controller */}
       <PWAInstallPrompt />
     </div>
   );
