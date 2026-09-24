@@ -186,8 +186,8 @@ export default function App() {
     if (!user && (tab === 'favorites' || tab === 'dashboard')) {
       triggerAuthNotice(
         tab === 'favorites'
-          ? 'Veuillez vous connecter pour consulter vos favoris ! 😊'
-          : 'Veuillez vous connecter pour accéder au tableau de bord ! 😊'
+          ? 'Veuillez vous connecter pour consulter vos favoris ! '
+          : 'Veuillez vous connecter pour accéder au tableau de bord ! '
       );
       return;
     }
@@ -199,7 +199,7 @@ export default function App() {
 
   const handleOpenContactModal = (p: Property) => {
     if (!user) {
-      triggerAuthNotice('Veuillez vous connecter pour contacter un agent ou programmer une visite ! 😊');
+      triggerAuthNotice('Veuillez vous connecter pour contacter un agent ou programmer une visite ! ');
       return;
     }
     setContactModalProperty(p);
@@ -207,7 +207,7 @@ export default function App() {
 
   const handleOpenAddPropertyModal = () => {
     if (!user) {
-      triggerAuthNotice('Veuillez vous connecter pour publier une annonce sur NyumbaLink ! 😊');
+      triggerAuthNotice('Veuillez vous connecter pour publier une annonce sur NyumbaLink ! ');
       return;
     }
 
@@ -228,7 +228,7 @@ export default function App() {
 
   const handleOpenMessagesModal = () => {
     if (!user) {
-      triggerAuthNotice('Veuillez vous connecter pour voir vos messages et demandes ! 😊');
+      triggerAuthNotice('Veuillez vous connecter pour voir vos messages et demandes ! ');
       return;
     }
     setMessagesModalOpen(true);
@@ -367,7 +367,7 @@ export default function App() {
   // Toggle Favorites (Instant Optimistic UI update)
   const handleToggleFavorite = async (propertyId: string) => {
     if (!user) {
-      triggerAuthNotice('Veuillez vous connecter pour ajouter des propriétés à vos favoris ! 😊');
+      triggerAuthNotice('Veuillez vous connecter pour ajouter des propriétés à vos favoris ! ');
       return;
     }
 
