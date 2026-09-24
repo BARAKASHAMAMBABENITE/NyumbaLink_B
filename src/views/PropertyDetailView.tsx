@@ -12,24 +12,15 @@ import {
   Bath,
   Maximize2,
   MessageSquare,
-  ShieldCheck,
   CheckCircle2,
   Navigation,
-  Sparkles,
   Building2,
   Calendar,
   Edit3,
-  Award,
   Trash2,
-  AlertCircle,
   AlertOctagon,
-  AlertTriangle,
   Lock,
-  Smartphone,
-  Laptop,
-  Send,
-  X,
-  Clock
+  X
 } from 'lucide-react';
 import { PropertyMap } from '../components/PropertyMap';
 import { PropertyCard } from '../components/PropertyCard';
@@ -371,7 +362,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
               </div>
             </div>
 
-            {/* Attributes Grid (Affichage complet : Chambres, Salons, Cuisines, Toilettes/Sdb) */}
+            {/* Attributes Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-[#f7f7f7] dark:bg-[#121212] rounded-xl border border-[#ebebeb] dark:border-[#2e2e2e]">
               {property.category !== 'parcelle' && property.bedrooms !== undefined && property.bedrooms !== null && (
                 <div className="flex items-center space-x-2.5 p-3 rounded-xl bg-white dark:bg-[#181818] border border-slate-200/60 dark:border-[#282828]">
@@ -507,6 +498,27 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
               height="320px"
             />
           </div>
+
+          {/* Related Properties Section using PropertyCard */}
+          {relatedProperties.length > 0 && (
+            <div className="space-y-4 pt-4">
+              <h3 className="text-base font-extrabold text-[#222222] dark:text-white">
+                Biens similaires dans le quartier {property.neighborhood}
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {relatedProperties.map((relProp) => (
+                  <PropertyCard
+                    key={relProp.id}
+                    property={relProp}
+                    isFavorite={false}
+                    onToggleFavorite={onToggleFavorite}
+                    onSelect={onSelectProperty}
+                    user={user}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Column Agent Card */}
@@ -605,7 +617,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Numéro whatsApp <span className="text-[10px] font-normal text-slate-400">(optionnel)</span>
+                    Numéro WhatsApp <span className="text-[10px] font-normal text-slate-400">(optionnel)</span>
                   </label>
                   <input
                     type="text"
@@ -659,79 +671,35 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Votre message (prédéfini ou personnalisable)
+                    Message
                   </label>
                   <textarea
                     rows={3}
                     value={clientMessage}
                     onChange={(e) => setClientMessage(e.target.value)}
-                    required
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 text-xs focus:ring-2 focus:ring-[#FF385C] outline-none resize-none"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#FF385C]"
                   />
                 </div>
 
-                <div className="space-y-2 pt-1">
-                  <button
-                    type="submit"
-                    disabled={isSending}
-                    className="w-full py-3 bg-[#FF385C] hover:bg-[#FF385C]/90 text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer shadow-md disabled:opacity-50"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{isSending ? 'Envoi en cours...' : 'Envoyer la demande / RDV'}</span>
-                  </button>
-
+                <div className="flex gap-2 pt-2">
                   <button
                     type="button"
                     onClick={handleWhatsAppRedirect}
-                    className="w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl text-xs font-bold transition flex items-center justify-center space-x-2 cursor-pointer shadow-md"
+                    className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center space-x-1.5"
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
-                    <span>Contacter via WhatsApp</span>
+                    <span>WhatsApp</span>
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSending}
+                    className="flex-1 bg-[#FF385C] hover:opacity-95 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
+                  >
+                    {isSending ? 'Envoi...' : 'Envoyer la demande'}
                   </button>
                 </div>
               </form>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#1e1e1e] max-w-md w-full rounded-2xl p-6 border border-slate-200 dark:border-[#2e2e2e] shadow-2xl space-y-4">
-            <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 flex items-center justify-center mx-auto">
-              <AlertCircle className="w-6 h-6" />
-            </div>
-
-            <div className="text-center space-y-2">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                Supprimer cette annonce ?
-              </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400">
-                Êtes-vous sûr de vouloir supprimer définitivement le bien{' '}
-                <strong className="text-slate-800 dark:text-slate-200">{property.title}</strong> ? Cette action est irréversible.
-              </p>
-            </div>
-
-            <div className="flex items-center space-x-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  if (onDeleteProperty) onDeleteProperty(property.id);
-                }}
-                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-md"
-              >
-                Confirmer la suppression
-              </button>
-            </div>
           </div>
         </div>
       )}

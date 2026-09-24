@@ -59,6 +59,8 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   const [surface, setSurface] = useState<number | ''>(property.surface || '');
   const [bedrooms, setBedrooms] = useState<number | ''>(property.bedrooms ?? '');
   const [bathrooms, setBathrooms] = useState<number | ''>(property.bathrooms ?? '');
+  const [kitchens, setKitchens] = useState<number | ''>(property.kitchens ?? '');
+  const [toilets, setToilets] = useState<number | ''>(property.toilets ?? '');
   const [features, setFeatures] = useState<string[]>(property.features || []);
   const [imageUrlInput, setImageUrlInput] = useState('');
   const [images, setImages] = useState<string[]>(property.images || []);
@@ -84,6 +86,8 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       setSurface(property.surface || '');
       setBedrooms(property.bedrooms ?? '');
       setBathrooms(property.bathrooms ?? '');
+      setKitchens(property.kitchens ?? '');
+      setToilets(property.toilets ?? '');
       setFeatures(property.features || []);
       setImages(property.images || []);
     }
@@ -194,40 +198,6 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     if (e.target) e.target.value = '';
   };
 
-  const handleAddImageUrl = async () => {
-    const url = imageUrlInput.trim();
-    if (!url) return;
-
-    setUploadingImage(true);
-    setImageError(null);
-    setImageSuccessMsg(null);
-    setUploadStatus('validating');
-
-    try {
-      const validation = await validatePropertyImageWithAI(url);
-      if (!validation.isRealEstate) {
-        setImageError(
-          validation.reason ||
-            "Photo refusée : Cette image ne représente pas un bien immobilier."
-        );
-        setUploadStatus('error');
-        setUploadingImage(false);
-        return;
-      }
-
-      setImages((prev) => [...prev, url]);
-      setImageSuccessMsg("Photo immobilière acceptée !");
-      setUploadStatus('success');
-      setImageUrlInput('');
-    } catch (err: any) {
-      console.warn('URL validation error:', err);
-      setImageError("Impossible de vérifier cette image. Assurez-vous d'utiliser une URL d'image valide et accessible.");
-      setUploadStatus('error');
-    } finally {
-      setUploadingImage(false);
-    }
-  };
-
   const handleRemoveImage = (index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
@@ -248,30 +218,10 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     );
   };
 
-  const handleForceAddPendingFiles = async () => {
-    if (pendingRejectedFiles.length === 0) return;
-    setUploadingImage(true);
-    for (const file of pendingRejectedFiles) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (reader.result) {
-          setImages((prev) => [...prev, reader.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-    setPendingRejectedFiles([]);
-    setImageError(null);
-    setImageSuccessMsg(`${pendingRejectedFiles.length} photo(s) acceptée(s) et ajoutée(s).`);
-    setUploadStatus('success');
-    setUploadingImage(false);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!price) return;
 
-    // Strict validation: Bukavu 3 Communes only
     const validCommunes: BukavuCommune[] = ['Ibanda', 'Kadutu', 'Bagira'];
     if (!validCommunes.includes(commune)) {
       setImageError("Le bien immobilier doit obligatoirement être situé dans l'une des 3 communes de Bukavu (Ibanda, Kadutu ou Bagira).");
@@ -311,6 +261,8 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         surface: category === 'parcelle' ? (surface ? Number(surface) : 500) : undefined,
         bedrooms: category === 'parcelle' ? undefined : (bedrooms !== '' ? Number(bedrooms) : undefined),
         bathrooms: category === 'parcelle' ? undefined : (bathrooms !== '' ? Number(bathrooms) : undefined),
+        kitchens: category === 'parcelle' ? undefined : (kitchens !== '' ? Number(kitchens) : undefined),
+        toilets: category === 'parcelle' ? undefined : (toilets !== '' ? Number(toilets) : undefined),
         features: category === 'parcelle' ? [] : features,
         images: images.length > 0 ? images : property.images
       });
@@ -510,29 +462,55 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 />
               </div>
             ) : (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-1">
-                  {type === 'vente'
-                    ? 'Nombre de pièces'
-                    : category === 'commercial'
-                    ? 'Nombre de bureaux / pièces'
-                    : 'Nombre de chambres'}
-                </label>
-                <input
-                  type="number"
-                  placeholder={
-                    type === 'vente'
-                      ? 'Ex: 6 pièces'
-                      : category === 'commercial'
-                      ? 'Ex: 4 bureaux'
-                      : 'Ex: 3 chambres'
-                  }
-                  value={bedrooms}
-                  onChange={(e) =>
-                    setBedrooms(e.target.value ? Number(e.target.value) : '')
-                  }
-                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7] outline-hidden"
-                />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-1">
+                    Chambres
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Ex: 3"
+                    value={bedrooms}
+                    onChange={(e) => setBedrooms(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7] outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-1">
+                    Cuisines
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Ex: 1"
+                    value={kitchens}
+                    onChange={(e) => setKitchens(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7] outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-1">
+                    S. de bains
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Ex: 1"
+                    value={bathrooms}
+                    onChange={(e) => setBathrooms(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7] outline-hidden"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-1">
+                    Toilettes
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Ex: 2"
+                    value={toilets}
+                    onChange={(e) => setToilets(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7] outline-hidden"
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -631,7 +609,6 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               </label>
             </div>
 
-            {/* Error Message */}
             {imageError && (
               <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 rounded-xl space-y-2 text-rose-700 dark:text-rose-300 text-xs animate-in fade-in">
                 <div className="flex items-start space-x-2.5">
@@ -644,7 +621,6 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               </div>
             )}
 
-            {/* Success Message */}
             {imageSuccessMsg && !imageError && (
               <div className="p-2.5 bg-slate-100 dark:bg-[#252525] border border-slate-200 dark:border-[#383838] rounded-xl flex items-center space-x-2 text-slate-800 dark:text-slate-200 text-xs animate-in fade-in">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-[#FF385C]" />
@@ -652,7 +628,6 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               </div>
             )}
 
-            {/* Hidden File Inputs */}
             <input
               type="file"
               ref={galleryInputRef}
@@ -707,7 +682,6 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               </div>
             )}
 
-            {/* Image Thumbnails list */}
             {images.length > 0 && (
               <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 pt-2">
                 {images.map((url, idx) => (
@@ -739,21 +713,17 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#717171] hover:text-[#222222] dark:hover:text-[#f7f7f7] hover:bg-black/5 dark:hover:bg-white/5 transition"
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition"
             >
               Annuler
             </button>
             <button
               type="submit"
-              disabled={submitting}
-              className="bg-gradient-to-r from-[#FF385C] to-[#E00B41] hover:opacity-95 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition shadow-md flex items-center space-x-2"
+              disabled={submitting || uploadingImage}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#FF385C] hover:bg-[#e03150] text-white transition shadow-md flex items-center space-x-2 cursor-pointer disabled:opacity-50"
             >
-              {submitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4" />
-              )}
-              <span>{submitting ? 'Enregistrement...' : 'Enregistrer'}</span>
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>Enregistrer les modifications</span>
             </button>
           </div>
         </form>
