@@ -71,7 +71,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  // Role-specific dashboard label & badge
   const getDashboardInfo = () => {
     if (!user) {
       return {
@@ -109,7 +108,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Overlay Backdrop */}
       {isOpen && (
         <div
           id="sidebar-overlay"
@@ -119,14 +117,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar: Visible docked on PC and tablet (md:), slide-out drawer on mobile */}
+      {/* Sidebar fixée pour empêcher le défilement global */}
       <aside
         id="app-sidebar"
-        className={`fixed md:sticky top-0 left-0 bottom-0 md:bottom-auto h-screen z-50 md:z-30 w-72 sm:w-80 md:w-64 lg:w-72 bg-white dark:bg-[#181818] border-r border-[#ebebeb] dark:border-[#2b2b2b] shadow-2xl md:shadow-none flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${
+        className={`fixed md:sticky top-0 left-0 h-screen z-50 md:z-30 w-72 sm:w-80 md:w-64 lg:w-72 bg-white dark:bg-[#181818] border-r border-[#ebebeb] dark:border-[#2b2b2b] shadow-2xl md:shadow-none flex flex-col shrink-0 transform transition-transform duration-300 ease-in-out md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Sidebar Header */}
         <div className="p-4 sm:p-5 border-b border-[#ebebeb] dark:border-[#2b2b2b] flex items-center justify-between shrink-0">
           <div
             onClick={() => handleNavClick('home')}
@@ -145,9 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Sidebar Nav Links */}
         <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
-          {/* 1. Accueil */}
           <button
             type="button"
             onClick={() => handleNavClick('home')}
@@ -163,7 +158,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </button>
 
-          {/* 2. Annonces */}
           <button
             type="button"
             onClick={() => handleNavClick('listings')}
@@ -184,7 +178,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </button>
 
-          {/* 3. Carte */}
           <button
             type="button"
             onClick={() => handleNavClick('map')}
@@ -200,7 +193,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </button>
 
-          {/* 4. Favoris */}
           <button
             type="button"
             onClick={() => handleNavClick('favorites')}
@@ -221,7 +213,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </button>
 
-          {/* 5. Tableau de bord */}
           <button
             type="button"
             onClick={() => handleNavClick('dashboard')}
@@ -239,7 +230,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </button>
 
-          {/* 6. Contrats & Baux */}
           <button
             type="button"
             onClick={() => handleNavClick('contracts')}
@@ -260,7 +250,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </button>
 
-          {/* 7. Paramètres */}
           <button
             type="button"
             onClick={() => handleNavClick('settings')}
@@ -276,7 +265,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </button>
 
-          {/* 8. Bouton d'action (Publier ou Connexion) placé en dessous des autres onglets */}
           <div className="pt-3 mt-3 border-t border-[#ebebeb] dark:border-[#2b2b2b]">
             {user ? (
               <button

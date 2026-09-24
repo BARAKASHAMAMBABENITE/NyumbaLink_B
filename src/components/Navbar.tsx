@@ -61,7 +61,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   const { language } = useLanguage();
 
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,17 +83,6 @@ export const Navbar: React.FC<NavbarProps> = ({
       document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [userDropdownOpen]);
-
-  const handleSwitchDemoRole = (role: UserRole) => {
-    if (user) {
-      setUser({
-        ...user,
-        role,
-      });
-    }
-
-    setUserDropdownOpen(false);
-  };
 
   const isAdmin =
     user?.role === 'admin' ||
@@ -120,7 +108,6 @@ export const Navbar: React.FC<NavbarProps> = ({
         ? 'Thème : Sombre'
         : 'Thème : Système';
 
-  // Gestion sécurisée des actions nécessitant une connexion
   const handleProtectedAction = (action: () => void) => {
     if (!user) {
       openAuthModal();
@@ -130,11 +117,11 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#181818]/95 backdrop-blur-md border-b border-[#ebebeb] dark:border-[#2e2e2e] shadow-xs transition-colors">
+    /* Navbar fixée en haut avec sticky et z-index élevé */
+    <header className="sticky top-0 z-40 bg-white/95 dark:bg-[#181818]/95 backdrop-blur-md border-b border-[#ebebeb] dark:border-[#2e2e2e] shadow-xs transition-colors shrink-0">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-2 h-16 min-w-0">
 
-          {/* GAUCHE : MENU + LOGO (Redirection Accueil) */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {onToggleSidebar && (
               <button
@@ -148,19 +135,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
+            {/* Le logo s'affiche uniquement sur mobile/tablette (md:hidden) car il est déjà présent dans la sidebar sur PC */}
             <div
               onClick={() => setCurrentTab('home')}
-              className="cursor-pointer group shrink-0"
+              className="cursor-pointer group shrink-0 md:hidden"
               title="Accueil - NyumbaLink"
             >
               <BrandLogo size="md" />
             </div>
           </div>
 
-          {/* DROITE : ACTIONS */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-auto">
-
-            {/* Publier (Protégé par authentification) */}
             {(user?.role === 'agent' ||
               user?.role === 'bailleur' ||
               user?.role === 'admin' || !user) && (
@@ -178,7 +163,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Nouveaux biens */}
             {openNewPropertiesModal && (
               <button
                 type="button"
@@ -195,7 +179,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Messages (Protégé par authentification) */}
             {handleOpenMessages && (
               <button
                 type="button"
@@ -212,7 +195,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* THÈME */}
             <button
               type="button"
               onClick={() => {
@@ -232,14 +214,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               {theme === 'system' && <Monitor className="w-4 h-4 text-[#FF385C]" />}
             </button>
 
-            {/* PROFIL / CONNEXION */}
             <div className="relative" ref={dropdownRef}>
               <button
                 type="button"
                 id="user-profile-nav-button"
                 onClick={() => setUserDropdownOpen((previous) => !previous)}
                 className="flex items-center space-x-1 sm:space-x-2 px-1 sm:px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-[#333] hover:bg-slate-100 dark:hover:bg-white/5 transition bg-white dark:bg-[#222] cursor-pointer shadow-xs shrink-0"
-                title={user ? 'Mon Profil Utilisateur' : 'Profil & Connexion'}
               >
                 {user ? (
                   <UserAvatar
@@ -285,7 +265,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                 />
               </button>
 
-              {/* MENU DÉROULANT PROFIL */}
               {userDropdownOpen && (
                 <div
                   id="user-profile-dropdown-panel"
@@ -324,30 +303,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                         )}
                       </div>
 
-                      {isAdmin && (
-                        <div className="pt-1">
-                          <p className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
-                            Supervision Rôle (Admin) :
-                          </p>
-                          <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-[#141414] p-1 rounded-xl">
-                            {(['client', 'agent', 'admin'] as UserRole[]).map((r) => (
-                              <button
-                                key={r}
-                                type="button"
-                                onClick={() => handleSwitchDemoRole(r)}
-                                className={`py-1 rounded-lg text-[10px] font-extrabold transition cursor-pointer text-center ${
-                                  user.role === r
-                                    ? 'bg-[#FF385C] text-white'
-                                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/5'
-                                }`}
-                              >
-                                {r.charAt(0).toUpperCase() + r.slice(1)}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
                       <button
                         type="button"
                         onClick={async () => {
@@ -366,7 +321,6 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </button>
                     </div>
                   ) : (
-                    /* UTILISATEUR NON CONNECTÉ : Redirection vers le Login/Auth Modal */
                     <div className="space-y-3">
                       <div className="text-center py-2">
                         <div className="w-12 h-12 rounded-full bg-[#FF385C]/10 text-[#FF385C] mx-auto flex items-center justify-center mb-2">

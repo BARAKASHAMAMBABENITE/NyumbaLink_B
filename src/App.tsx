@@ -468,8 +468,9 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-[#f7f7f7] dark:bg-[#121212] text-[#222222] dark:text-[#f7f7f7] selection:bg-[#FF385C] selection:text-white transition-colors">
-      {/* Sidebar: Visible docked on PC/tablet (md:), drawer overlay on mobile */}
+    // h-screen et overflow-hidden sur le conteneur global pour bloquer le défilement général de la page
+    <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-[#f7f7f7] dark:bg-[#121212] text-[#222222] dark:text-[#f7f7f7] selection:bg-[#FF385C] selection:text-white transition-colors">
+      {/* Sidebar fixe */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -490,9 +491,9 @@ export default function App() {
         }}
       />
 
-      {/* Main Content Area (Navbar, View Router, Footer) */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top Header Navbar */}
+      {/* Main Content Area (Navbar fixe et contenu scrollable indépendamment) */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Top Header Navbar fixe */}
         <Navbar
           currentTab={currentTab}
           setCurrentTab={handleSetCurrentTab}
@@ -511,8 +512,8 @@ export default function App() {
           onToggleSidebar={() => setSidebarOpen(true)}
         />
 
-        {/* Main Content Router */}
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
+        {/* Contenu principal scrollable (overflow-y-auto) */}
+        <main className="flex-1 overflow-y-auto max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
         {currentTab === 'listings' ? (
           <ListingsView
             properties={properties}
@@ -608,10 +609,9 @@ export default function App() {
             user={user}
           />
         )}
-      </main>
-
         {/* Footer */}
         <Footer />
+      </main>
       </div>
 
       {/* Modals */}

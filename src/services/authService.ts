@@ -7,7 +7,8 @@ import {
   signInWithPopup,
   sendSignInLinkToEmail,
   isSignInWithEmailLink,
-  signInWithEmailLink
+  signInWithEmailLink,
+  fetchSignInMethodsForEmail
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
@@ -85,6 +86,10 @@ const resolveRole = (email: string, defaultRole: UserRole = 'client'): UserRole 
  */
 export const loginWithGoogle = async (): Promise<UserProfile> => {
   const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({
+    prompt: 'select_account'
+  });
+
   try {
     const cred = await signInWithPopup(auth, provider);
     const uid = cred.user.uid;
@@ -137,15 +142,12 @@ export const loginWithGoogle = async (): Promise<UserProfile> => {
   }
 };
 
-/**
- * Fonction de compatibilité pour le redirect Google
- */
 export const handleGoogleRedirectResult = async (): Promise<UserProfile | null> => {
   return null;
 };
 
 /**
- * Standard Email & Password Login
+ * Standard Email & Password Login avec prise en charge automatique des comptes Google (envoi d'un lien de création de mot de passe)
  */
 export const loginUser = async (email: string, pass: string): Promise<UserProfile> => {
   const cleanEmail = email.trim().toLowerCase();
@@ -166,12 +168,30 @@ export const loginUser = async (email: string, pass: string): Promise<UserProfil
     return fallback;
   } catch (err: any) {
     console.error('Login Error:', err);
+
+    // Si le mot de passe échoue ou si l'utilisateur n'a pas de mot de passe (créé via Google)
+    if (err?.code === 'auth/invalid-credential' || err?.code === 'auth/wrong-password' || err?.code === 'auth/user-not-found') {
+      try {
+        const methods = await fetchSignInMethodsForEmail(auth, cleanEmail);
+        // Si l'e-mail est enregistré avec Google mais n'a pas encore de mot de passe configuré
+        if (methods.includes('google.com') && !methods.includes('password')) {
+          // Déclencher automatiquement l'envoi d'un e-mail de réinitialisation/création de mot de passe
+          await sendPasswordResetEmail(auth, cleanEmail);
+          throw new Error('Cet e-mail est associé à un compte Google. Un e-mail de définition de mot de passe vient de vous être envoyé pour vous permettre de vous connecter par mot de passe.');
+        }
+      } catch (checkErr: any) {
+        if (checkErr.message && checkErr.message.includes('associé à un compte Google')) {
+          throw checkErr;
+        }
+      }
+    }
+
     throw new Error(formatFirebaseAuthErrorMessage(err));
   }
 };
 
 /**
- * Standard Email & Password Registration
+ * Standard Email & Password Registration avec gestion des doublons Google
  */
 export const registerUser = async (
   email: string,
@@ -199,6 +219,9 @@ export const registerUser = async (
     return profile;
   } catch (err: any) {
     console.error('Registration Error:', err);
+    if (err?.code === 'auth/email-already-in-use') {
+      throw new Error('Cet e-mail est déjà enregistré. Si vous l’avez utilisé avec Google, veuillez cliquer sur "Continuer avec Google".');
+    }
     throw new Error(formatFirebaseAuthErrorMessage(err));
   }
 };
@@ -285,9 +308,6 @@ export const completeMagicLinkSignIn = async (): Promise<UserProfile | null> => 
   }
 };
 
-/**
- * Déconnecte l'utilisateur de Firebase
- */
 export const logoutUser = async (): Promise<void> => {
   try {
     await signOut(auth);
@@ -297,9 +317,6 @@ export const logoutUser = async (): Promise<void> => {
   }
 };
 
-/**
- * Met à jour le profil de l'utilisateur dans Firestore
- */
 export const updateUserProfileInFirestore = async (uid: string, updates: Partial<UserProfile>): Promise<void> => {
   try {
     const userRef = doc(db, 'users', uid);
@@ -310,9 +327,6 @@ export const updateUserProfileInFirestore = async (uid: string, updates: Partial
   }
 };
 
-/**
- * Met à jour le rôle d'un utilisateur dans Firestore
- */
 export const updateUserRoleInFirestore = async (uid: string, role: string): Promise<void> => {
   try {
     const userRef = doc(db, 'users', uid);

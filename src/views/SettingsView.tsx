@@ -270,7 +270,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* VIEW 1: OVERVIEW GRID OF ALL TABS (When no specific tab is open) */}
+      {/* VIEW 1: OVERVIEW GRID OF ALL TABS */}
       {selectedTab === null ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {tabsConfig.map((tItem) => {
@@ -309,9 +309,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           })}
         </div>
       ) : (
-        /* VIEW 2: SINGLE ACTIVE TAB (The only tab active, all others hidden) */
+        /* VIEW 2: SINGLE ACTIVE TAB */
         <div className="bg-white dark:bg-[#1a1a1a] p-6 sm:p-8 rounded-2xl border border-slate-200/80 dark:border-[#2e2e2e] shadow-xs">
-          {/* Top Bar with Back Button to return to all tabs */}
           <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-[#2a2a2a] mb-6">
             <button
               type="button"
@@ -606,16 +605,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       ? 'If you encounter any difficulty, need assistance verifying a listing, or want guidance for a property visit:'
                       : "Si vous rencontrez une difficulté, si vous souhaitez de l'aide pour vérifier une annonce ou être accompagné lors d'une visite :"}
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-1 gap-3 pt-1">
                     <div className="p-3.5 bg-white dark:bg-[#1e1e1e] rounded-xl border border-slate-200 dark:border-[#333]">
                       <p className="font-bold text-slate-900 dark:text-white text-xs">Ben Baraka Shamamba</p>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">benbarakashamamba@gmail.com</p>
                       <p className="text-xs font-bold text-[#FF385C] mt-1">+243 986 760 178</p>
-                    </div>
-                    <div className="p-3.5 bg-white dark:bg-[#1e1e1e] rounded-xl border border-slate-200 dark:border-[#333]">
-                      <p className="font-bold text-slate-900 dark:text-white text-xs">David Makindu</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">davidmakindu9@gmail.com</p>
-                      <p className="text-xs font-bold text-[#FF385C] mt-1">+243 993 853 036</p>
                     </div>
                   </div>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
@@ -624,28 +618,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       : "Vous pouvez également utiliser l'onglet « Assistance & Contact Direct » pour envoyer un message ou un signalement directement depuis l'application."}
                   </p>
                 </div>
-
-                {/* 6. Privacy Policy */}
-                <div className="p-5 bg-slate-50 dark:bg-[#252525] rounded-2xl border border-slate-200 dark:border-[#333] space-y-2">
-                  <div className="flex items-center space-x-2 text-slate-900 dark:text-white font-bold text-sm">
-                    <Lock className="w-4 h-4 text-[#FF385C]" />
-                    <h3>
-                      {language === 'en'
-                        ? '6. Privacy & Personal Data Protection'
-                        : '6. Confidentialité & Protection des Données'}
-                    </h3>
-                  </div>
-                  <p>
-                    {language === 'en'
-                      ? 'Your contact information (phone number, email) submitted for visit inquiries is used exclusively to facilitate your real estate communication in Bukavu. NyumbaLink never sells or shares your personal data with third-party advertisers.'
-                      : "Les coordonnées (téléphone, e-mail) transmises lors des demandes de visite sont utilisées exclusivement pour faciliter vos échanges immobiliers à Bukavu. NyumbaLink ne vend et ne cède jamais vos informations à des tiers publicitaires."}
-                  </p>
-                </div>
               </div>
             </div>
           )}
 
-          {/* 3. ASSISTANCE & CONTACT DIRECT */}
+          {/* 3. SUPPORT & ASSISTANCE */}
           {selectedTab === 'support' && (
             <div className="space-y-6">
               <div>
@@ -654,228 +631,165 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {language === 'en'
-                    ? 'Get assistance, report an issue, or send suggestions to the team'
-                    : "Obtenez de l'aide immédiate, signalez un problème ou envoyez une suggestion à l'équipe"}
+                    ? 'Send feedback, report bugs or ask questions to the team'
+                    : "Envoyez un message, signalez un bug ou posez vos questions à l'équipe"}
                 </p>
               </div>
 
-              {/* Direct Contact in a single unified card */}
-              <div className="p-5 bg-slate-50 dark:bg-[#252525] rounded-2xl border border-slate-200 dark:border-[#333] space-y-4 max-w-md">
-                {/* Ben Baraka Shamamba */}
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">Ben Baraka Shamamba</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">benbarakashamamba@gmail.com</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 font-bold text-[#FF385C]">+243 986 760 178</p>
-                </div>
-
-                <div className="border-t border-slate-200 dark:border-[#333]"></div>
-
-                {/* David Makindu */}
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white">David Makindu</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300">davidmakindu9@gmail.com</p>
-                  <p className="text-xs text-slate-600 dark:text-slate-300 font-bold text-[#FF385C]">+243 993 853 036</p>
-                </div>
-              </div>
-
-              {/* Form Feedback */}
-              <form onSubmit={handleSendFeedback} className="space-y-3 pt-2 max-w-xl">
-                <h4 className="text-xs font-bold text-slate-900 dark:text-white">
-                  {language === 'en'
-                    ? 'Send a message or question to the team'
-                    : "Envoyer un message ou une question à l'équipe"}
-                </h4>
-
-                {feedbackSent && (
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs text-emerald-800 dark:text-emerald-300 font-semibold flex items-center space-x-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>
-                      {language === 'en'
-                        ? 'Thank you! Your message has been received.'
-                        : 'Merci ! Votre message a été bien transmis.'}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <select
-                    value={feedbackCategory}
-                    onChange={(e) => setFeedbackCategory(e.target.value)}
-                    className="px-3 py-2 bg-slate-50 dark:bg-[#252525] border border-slate-200 dark:border-[#333] rounded-xl text-xs font-bold text-slate-800 dark:text-white focus:outline-none"
-                  >
-                    <option value="suggestion">
-                      {language === 'en' ? 'Improvement Suggestion' : "Suggestion d'amélioration"}
-                    </option>
-                    <option value="question">
-                      {language === 'en' ? 'General Question / Help' : "Question générale / Besoin d'aide"}
-                    </option>
-                    <option value="bug">
-                      {language === 'en' ? 'Report a Technical Bug' : 'Signaler un problème technique'}
-                    </option>
-                    <option value="signalement">
-                      {language === 'en' ? 'Report a Suspicious Listing' : 'Signaler une annonce suspecte'}
-                    </option>
-                  </select>
-                </div>
-
-                <textarea
-                  rows={3}
-                  value={feedbackMessage}
-                  onChange={(e) => setFeedbackMessage(e.target.value)}
-                  placeholder={
-                    language === 'en'
-                      ? 'Describe your question or situation here...'
-                      : 'Décrivez votre situation ou votre question ici...'
-                  }
-                  className="w-full p-3 bg-slate-50 dark:bg-[#252525] border border-slate-200 dark:border-[#333] rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
-                  required
-                />
-
-                <div className="flex justify-end">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-[#FF385C] hover:bg-[#E61E4D] text-white rounded-xl text-xs font-bold transition flex items-center space-x-1.5 cursor-pointer"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>{language === 'en' ? 'Submit Message' : 'Envoyer le message'}</span>
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* 4. CORBEILLE DES ÉLÉMENTS SUPPRIMÉS */}
-          {selectedTab === 'trash' && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                    {language === 'en' ? 'Deleted Items / Trash' : 'Corbeille des Éléments Supprimés'}
-                  </h2>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                    {language === 'en'
-                      ? 'Restore or permanently delete removed properties. Auto-deleted after 60 days.'
-                      : 'Restaurez ou supprimez définitivement vos annonces. Suppression automatique après 60 jours.'}
-                  </p>
-                </div>
-                {trashItems.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleEmptyAllTrash}
-                    className="self-start sm:self-auto px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold hover:bg-rose-100 transition cursor-pointer flex items-center space-x-1.5"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>{language === 'en' ? 'Empty Entire Trash' : 'Vider toute la corbeille'}</span>
-                  </button>
-                )}
-              </div>
-
-              {/* 60-Day Policy Information Banner */}
-              <div className="p-4 bg-white dark:bg-[#1a1a1a] border border-slate-200/90 dark:border-[#2e2e2e] rounded-2xl flex items-start space-x-3.5 shadow-xs">
-                <Clock className="w-5 h-5 text-[#FF385C] shrink-0 mt-0.5" />
-                <div className="text-xs space-y-1">
-                  <p className="font-bold text-slate-900 dark:text-white">
-                    {language === 'en'
-                      ? 'Retention Policy: 60-Day Automatic Cleanup'
-                      : 'Règle de conservation : Nettoyage automatique après 60 jours'}
-                  </p>
-                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed text-[11px]">
-                    {language === 'en'
-                      ? 'All deleted listings are kept in this trash bin for a maximum of 60 days. You can choose to restore them anytime or permanently destroy them immediately. After 60 days, un-restored items are automatically and permanently purged.'
-                      : 'Toutes les annonces supprimées restent dans cette corbeille pendant 60 jours maximum. Vous pouvez choisir de les restaurer à tout moment ou de les effacer définitivement. Après 60 jours, les éléments non restaurés sont définitivement et automatiquement détruits.'}
-                  </p>
-                </div>
-              </div>
-
-              {trashActionNotice && (
-                <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center space-x-2 text-xs text-emerald-800 dark:text-emerald-300 font-semibold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{trashActionNotice}</span>
-                </div>
-              )}
-
-              {trashItems.length === 0 ? (
-                <div className="p-12 text-center bg-slate-50 dark:bg-[#252525] rounded-2xl border border-slate-200 dark:border-[#333] space-y-3">
-                  <Trash2 className="w-10 h-10 text-slate-400 mx-auto" />
-                  <h3 className="text-sm font-bold text-slate-800 dark:text-white">
-                    {language === 'en' ? 'Trash is empty' : 'La corbeille est vide'}
+              {feedbackSent ? (
+                <div className="p-6 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl text-center space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+                  <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
+                    {language === 'en' ? 'Message sent successfully!' : 'Message envoyé avec succès !'}
                   </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 max-w-sm mx-auto">
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">
                     {language === 'en'
-                      ? 'No properties in trash. Deleted items will be held here for 60 days before permanent deletion.'
-                      : "Aucune annonce n'est actuellement dans la corbeille. Les annonces supprimées y séjournent pendant 60 jours avant leur destruction définitive."}
+                      ? 'Thank you for reaching out. We will get back to you shortly.'
+                      : "Merci pour votre message. Nous vous répondrons dans les plus brefs délais."}
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {/* Bulk Actions Bar */}
-                  <div className="p-3 bg-slate-100 dark:bg-[#202020] rounded-xl border border-slate-200 dark:border-[#333] flex flex-wrap items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={handleSelectAllTrash}
-                      className="flex items-center space-x-2 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-[#FF385C] transition cursor-pointer"
+                <form onSubmit={handleSendFeedback} className="space-y-4 max-w-2xl">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {language === 'en' ? 'Category' : 'Catégorie de message'}
+                    </label>
+                    <select
+                      value={feedbackCategory}
+                      onChange={(e) => setFeedbackCategory(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#252525] border border-slate-200 dark:border-[#333] rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
                     >
-                      {selectedTrashIds.length === trashItems.length ? (
-                        <CheckSquare className="w-4 h-4 text-[#FF385C]" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-400" />
-                      )}
-                      <span>
-                        {selectedTrashIds.length === trashItems.length
-                          ? language === 'en'
-                            ? 'Deselect all'
-                            : 'Tout désélectionner'
-                          : language === 'en'
-                          ? `Select all (${trashItems.length})`
-                          : `Tout sélectionner (${trashItems.length})`}
-                      </span>
-                    </button>
+                      <option value="suggestion">
+                        {language === 'en' ? 'Suggestion / Improvement' : "Suggestion / Amélioration de l'app"}
+                      </option>
+                      <option value="bug">
+                        {language === 'en' ? 'Report a Bug / Issue' : 'Signaler un Bug / Dysfonctionnement'}
+                      </option>
+                      <option value="listing">
+                        {language === 'en' ? 'Help with a Listing' : 'Assistance concernant une annonce'}
+                      </option>
+                    </select>
+                  </div>
 
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                      {language === 'en' ? 'Your Message' : 'Votre Message'}
+                    </label>
+                    <textarea
+                      rows={4}
+                      value={feedbackMessage}
+                      onChange={(e) => setFeedbackMessage(e.target.value)}
+                      placeholder={
+                        language === 'en'
+                          ? 'Describe your suggestion or issue in detail...'
+                          : 'Décrivez votre demande, suggestion ou problème rencontré...'
+                      }
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#252525] border border-slate-200 dark:border-[#333] rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-[#FF385C]"
+                      required
+                    ></textarea>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-[#FF385C] hover:bg-[#E61E4D] text-white rounded-xl text-xs font-bold transition flex items-center space-x-2 cursor-pointer"
+                    >
+                      <Send className="w-3.5 h-3.5" />
+                      <span>{language === 'en' ? 'Send Message' : 'Envoyer le message'}</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* 4. CORBEILLE */}
+          {selectedTab === 'trash' && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                    {language === 'en' ? 'Deleted Items / Trash' : 'Corbeille des Annonces Supprimées'}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {language === 'en'
+                      ? 'Items in trash are permanently deleted after 30 days.'
+                      : 'Les annonces dans la corbeille sont supprimées définitivement après 30 jours.'}
+                  </p>
+                </div>
+
+                {trashItems.length > 0 && (
+                  <div className="flex items-center space-x-2">
                     {selectedTrashIds.length > 0 && (
-                      <div className="flex items-center space-x-2">
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mr-1">
-                          {selectedTrashIds.length} {language === 'en' ? 'selected' : 'sélectionné(s)'}
-                        </span>
+                      <>
                         <button
                           type="button"
                           onClick={handleBatchRestore}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                          className="px-3 py-1.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 rounded-lg text-xs font-bold hover:bg-emerald-200 transition cursor-pointer"
                         >
-                          <RotateCcw className="w-3.5 h-3.5" />
-                          <span>{language === 'en' ? 'Restore Selected' : 'Restaurer la sélection'}</span>
+                          {language === 'en' ? `Restore (${selectedTrashIds.length})` : `Restaurer (${selectedTrashIds.length})`}
                         </button>
                         <button
                           type="button"
                           onClick={handleBatchPermanentDelete}
-                          className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
+                          className="px-3 py-1.5 bg-rose-100 dark:bg-rose-950 text-rose-800 dark:text-rose-300 rounded-lg text-xs font-bold hover:bg-rose-200 transition cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>{language === 'en' ? 'Delete Selected' : 'Supprimer définitivement'}</span>
+                          {language === 'en' ? `Delete (${selectedTrashIds.length})` : `Supprimer (${selectedTrashIds.length})`}
                         </button>
-                      </div>
+                      </>
                     )}
+                    <button
+                      type="button"
+                      onClick={handleEmptyAllTrash}
+                      className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                    >
+                      {language === 'en' ? 'Empty Trash' : 'Vider la corbeille'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {trashActionNotice && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl text-xs text-blue-800 dark:text-blue-300 font-semibold">
+                  {trashActionNotice}
+                </div>
+              )}
+
+              {trashItems.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between px-2 text-xs font-bold text-slate-500">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllTrash}
+                      className="flex items-center space-x-1.5 hover:text-slate-800 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {selectedTrashIds.length === trashItems.length ? (
+                        <CheckSquare className="w-4 h-4 text-[#FF385C]" />
+                      ) : (
+                        <Square className="w-4 h-4" />
+                      )}
+                      <span>{language === 'en' ? 'Select All' : 'Tout sélectionner'}</span>
+                    </button>
+                    <span>{trashItems.length} {language === 'en' ? 'item(s)' : 'élément(s)'}</span>
                   </div>
 
-                  {/* List of trash items */}
-                  <div className="space-y-3">
+                  <div className="divide-y divide-slate-100 dark:divide-[#2a2a2a] border border-slate-200 dark:border-[#333] rounded-2xl overflow-hidden bg-slate-50/50 dark:bg-[#202020]">
                     {trashItems.map((item) => {
-                      const daysRemaining = getDaysRemainingInTrash(item.deletedAt);
+                      const daysLeft = getDaysRemainingInTrash(item.deletedAt);
                       const isSelected = selectedTrashIds.includes(item.property.id);
 
                       return (
                         <div
                           key={item.property.id}
-                          className={`p-4 rounded-xl border transition flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                            isSelected
-                              ? 'bg-[#FF385C]/5 border-[#FF385C]/40 dark:bg-[#FF385C]/10 dark:border-[#FF385C]/50'
-                              : 'bg-slate-50 dark:bg-[#252525] border-slate-200 dark:border-[#333]'
+                          className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                            isSelected ? 'bg-rose-50/30 dark:bg-[#282022]' : 'bg-white dark:bg-[#1e1e1e]'
                           }`}
                         >
-                          <div className="flex items-start space-x-3 min-w-0">
+                          <div className="flex items-start space-x-3">
                             <button
                               type="button"
                               onClick={() => handleToggleSelectTrash(item.property.id)}
-                              className="mt-0.5 text-slate-400 hover:text-[#FF385C] transition cursor-pointer shrink-0"
+                              className="mt-1 text-slate-400 hover:text-[#FF385C] cursor-pointer"
                             >
                               {isSelected ? (
                                 <CheckSquare className="w-4 h-4 text-[#FF385C]" />
@@ -884,50 +798,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                               )}
                             </button>
 
-                            <div className="space-y-1.5 min-w-0">
-                              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            <div>
+                              <h4 className="text-xs font-bold text-slate-900 dark:text-white">
                                 {item.property.title}
                               </h4>
-                              <p className="text-[11px] text-slate-600 dark:text-slate-400">
-                                {item.property.commune} ({item.property.neighborhood}) • ${item.property.price}
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                                {item.property.commune} • {item.property.price}$
                               </p>
-
-                              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                                  {language === 'en' ? 'Deleted on ' : 'Supprimé le '}
-                                  {new Date(item.deletedAt).toLocaleDateString()}
-                                </span>
-
-                                <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/60">
-                                  <Clock className="w-3 h-3" />
-                                  <span>
-                                    {language === 'en'
-                                      ? `Auto purge in ${daysRemaining} day${daysRemaining > 1 ? 's' : ''}`
-                                      : `Suppression auto dans ${daysRemaining} jour${daysRemaining > 1 ? 's' : ''}`}
-                                  </span>
+                              <div className="flex items-center space-x-1.5 mt-1 text-[10px] text-amber-600 dark:text-amber-400 font-semibold">
+                                <Clock className="w-3 h-3" />
+                                <span>
+                                  {language === 'en'
+                                    ? `Permanently deleted in ${daysLeft} day(s)`
+                                    : `Suppression définitive dans ${daysLeft} jour(s)`}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center space-x-2 shrink-0 self-end sm:self-center">
+                          <div className="flex items-center space-x-2 self-end sm:self-auto">
                             <button
                               type="button"
                               onClick={() => handleRestore(item.property.id)}
-                              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer flex items-center space-x-1"
-                              title={language === 'en' ? 'Restore this listing' : 'Restaurer cette annonce'}
+                              className="px-3 py-1.5 bg-slate-100 dark:bg-[#2a2a2a] hover:bg-slate-200 dark:hover:bg-[#333] text-slate-800 dark:text-slate-200 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
                             >
-                              <RotateCcw className="w-3.5 h-3.5" />
+                              <RotateCcw className="w-3.5 h-3.5 text-emerald-500" />
                               <span>{language === 'en' ? 'Restore' : 'Restaurer'}</span>
                             </button>
                             <button
                               type="button"
                               onClick={() => handlePermanentDelete(item.property.id, item.property.title)}
-                              className="px-3 py-1.5 bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-bold transition cursor-pointer flex items-center space-x-1"
-                              title={language === 'en' ? 'Permanently destroy' : 'Supprimer définitivement'}
+                              className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 text-rose-700 dark:text-rose-300 rounded-lg text-xs font-bold transition flex items-center space-x-1 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
-                              <span>{language === 'en' ? 'Delete forever' : 'Supprimer définitivement'}</span>
+                              <span>{language === 'en' ? 'Delete' : 'Supprimer'}</span>
                             </button>
                           </div>
                         </div>
@@ -935,71 +839,85 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     })}
                   </div>
                 </div>
+              ) : (
+                <div className="p-12 text-center bg-slate-50 dark:bg-[#252525] rounded-2xl border border-slate-200 dark:border-[#333] space-y-3 max-w-md mx-auto">
+                  <Trash2 className="w-10 h-10 text-slate-400 mx-auto" />
+                  <h3 className="text-sm font-bold text-slate-800 dark:text-white">
+                    {language === 'en' ? 'Trash is empty' : 'Votre corbeille est vide'}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {language === 'en'
+                      ? 'Deleted listings will appear here before permanent deletion.'
+                      : 'Les annonces supprimées apparaîtront ici avant leur suppression définitive.'}
+                  </p>
+                </div>
               )}
             </div>
           )}
 
           {/* 5. LANGUE D'AFFICHAGE */}
           {selectedTab === 'language' && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-w-xl">
               <div>
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-                  {language === 'en' ? 'Application Display Language' : language === 'sw' ? 'Lugha ya Maonyesho ya Programu' : "Langue d'Affichage de l'Application"}
+                  {language === 'en' ? 'Display Language' : language === 'sw' ? 'Lugha ya Maonyesho' : "Langue d'Affichage"}
                 </h2>
-                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {language === 'en'
-                    ? 'Choose your preferred language to browse NyumbaLink'
-                    : language === 'sw' ? 'Chagua lugha unayopendelea kutumia NyumbaLink' : 'Choisissez votre langue préférée pour naviguer sur NyumbaLink'}
+                    ? 'Select your preferred language for the application interface.'
+                    : language === 'sw'
+                    ? 'Chagua lugha unayopendelea kwa ajili ya kiolesura cha programu.'
+                    : "Choisissez la langue de l'interface de l'application."}
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <button
                   type="button"
                   onClick={() => setLanguage('fr')}
-                  className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between space-y-2 ${
                     language === 'fr'
-                      ? 'bg-[#FF385C]/10 border-[#FF385C] text-[#FF385C]'
-                      : 'bg-slate-50 dark:bg-[#252525] border-slate-200 dark:border-[#333] text-slate-800 dark:text-slate-200 hover:border-slate-300'
+                      ? 'border-[#FF385C] bg-[#FF385C]/5 dark:bg-[#FF385C]/10 text-slate-900 dark:text-white font-bold'
+                      : 'border-slate-200 dark:border-[#333] bg-slate-50 dark:bg-[#252525] text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  <div className="space-y-1">
-                    <span className="text-sm font-black block">Français (FR)</span>
-                    <span className="text-xs opacity-75">Langue officielle par défaut</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">🇫🇷 Français</span>
+                    {language === 'fr' && <CheckCircle2 className="w-4 h-4 text-[#FF385C]" />}
                   </div>
-                  {language === 'fr' && <CheckCircle2 className="w-5 h-5 text-[#FF385C]" />}
+                  <span className="text-[11px] text-slate-500 font-normal">Langue principale</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setLanguage('en')}
-                  className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between space-y-2 ${
                     language === 'en'
-                      ? 'bg-[#FF385C]/10 border-[#FF385C] text-[#FF385C]'
-                      : 'bg-slate-50 dark:bg-[#252525] border-slate-200 dark:border-[#333] text-slate-800 dark:text-slate-200 hover:border-slate-300'
+                      ? 'border-[#FF385C] bg-[#FF385C]/5 dark:bg-[#FF385C]/10 text-slate-900 dark:text-white font-bold'
+                      : 'border-slate-200 dark:border-[#333] bg-slate-50 dark:bg-[#252525] text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  <div className="space-y-1">
-                    <span className="text-sm font-black block">English (EN)</span>
-                    <span className="text-xs opacity-75">English interface mode</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">🇬🇧 English</span>
+                    {language === 'en' && <CheckCircle2 className="w-4 h-4 text-[#FF385C]" />}
                   </div>
-                  {language === 'en' && <CheckCircle2 className="w-5 h-5 text-[#FF385C]" />}
+                  <span className="text-[11px] text-slate-500 font-normal">International</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setLanguage('sw')}
-                  className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between ${
+                  className={`p-4 rounded-2xl border text-left transition cursor-pointer flex flex-col justify-between space-y-2 ${
                     language === 'sw'
-                      ? 'bg-[#FF385C]/10 border-[#FF385C] text-[#FF385C]'
-                      : 'bg-slate-50 dark:bg-[#252525] border-slate-200 dark:border-[#333] text-slate-800 dark:text-slate-200 hover:border-slate-300'
+                      ? 'border-[#FF385C] bg-[#FF385C]/5 dark:bg-[#FF385C]/10 text-slate-900 dark:text-white font-bold'
+                      : 'border-slate-200 dark:border-[#333] bg-slate-50 dark:bg-[#252525] text-slate-700 dark:text-slate-300'
                   }`}
                 >
-                  <div className="space-y-1">
-                    <span className="text-sm font-black block">Kiswahili (SW)</span>
-                    <span className="text-xs opacity-75">Lugha ya Kiswahili</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">🇨🇩 Kiswahili</span>
+                    {language === 'sw' && <CheckCircle2 className="w-4 h-4 text-[#FF385C]" />}
                   </div>
-                  {language === 'sw' && <CheckCircle2 className="w-5 h-5 text-[#FF385C]" />}
+                  <span className="text-[11px] text-slate-500 font-normal">Kikanda</span>
                 </button>
               </div>
             </div>

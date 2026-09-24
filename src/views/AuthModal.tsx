@@ -8,7 +8,8 @@ import {
   AlertCircle,
   Loader2,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowLeft
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { BrandLogo } from '../components/BrandLogo';
@@ -53,11 +54,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
     setErrorMsg('');
     try {
-      // Utilise désormais signInWithRedirect (redirection complète)
-      await loginWithGoogle();
+      const profile = await loginWithGoogle();
+      setUser(profile);
+      onClose();
     } catch (err: any) {
       console.error('Google Auth Error:', err);
       setErrorMsg(err?.message || 'Erreur lors de la connexion Google.');
+    } finally {
       setLoading(false);
     }
   };
@@ -126,7 +129,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         onClose();
       } else if (mode === 'forgot') {
         await resetUserPassword(cleanEmail);
-        setSuccessMsg('Un e-mail de réinitialisation de mot de passe vous a été envoyé.');
+        setSuccessMsg('Un e-mail de réinitialisation de mot de passe vous a été envoyé. Vérifiez votre boîte de réception.');
       }
     } catch (err: any) {
       console.error('Auth error:', err);
@@ -151,7 +154,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {mode === 'register'
               ? 'Créer un Compte Sécurisé'
               : mode === 'forgot'
-              ? 'Mot de Passe Oublié'
+              ? 'Récupération de Mot de Passe'
               : 'Connexion à NyumbaLink'}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
@@ -430,7 +433,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </form>
         )}
 
-        {/* MODE 3: Password Login */}
+        {/* MODE 3: Password Login & Forgot Password */}
         {(mode === 'login' || mode === 'forgot') && (
           <form onSubmit={handleSubmitStandard} className="space-y-3">
             <div>
@@ -493,12 +496,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#FF385C] hover:opacity-90 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center space-x-2 cursor-pointer"
+              className="w-full bg-[#FF385C] hover:opacity-90 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-md flex items-center justify-center space-x-2 mt-2 cursor-pointer"
             >
               {loading ? (
                 <Loader2 className="w-4 h-4 animate-spin text-white" />
+              ) : mode === 'forgot' ? (
+                <span>Envoyer l'e-mail de réinitialisation</span>
               ) : (
-                <span>{mode === 'login' ? 'Se Connecter' : 'Réinitialiser le Mot de Passe'}</span>
+                <span>Se Connecter</span>
               )}
             </button>
 
@@ -510,25 +515,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setErrorMsg('');
                   setSuccessMsg('');
                 }}
-                className="w-full text-center text-xs text-slate-500 dark:text-slate-400 hover:underline pt-2 cursor-pointer"
+                className="w-full text-center text-xs text-slate-500 hover:text-slate-800 dark:hover:text-white flex items-center justify-center space-x-1 pt-2 cursor-pointer"
               >
-                Retour à la connexion
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Retour à la connexion</span>
               </button>
             )}
           </form>
         )}
 
-        {/* Footer Cancel Button */}
-        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-[#2e2e2e] flex justify-center">
+        {/* Modal Footer close button */}
+        <div className="mt-6 text-center">
           <button
-            type="button"
             onClick={onClose}
-            className="w-full py-2.5 px-4 rounded-xl border border-slate-200 dark:border-[#2e2e2e] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-[#252525] font-bold text-xs transition text-center cursor-pointer"
+            className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-semibold cursor-pointer"
           >
             Fermer
           </button>
         </div>
-
       </div>
     </div>
   );
