@@ -340,7 +340,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, propert
               onClick={onClose}
               className="px-5 py-2 bg-stone-100 dark:bg-[#282828] hover:bg-stone-200 dark:hover:bg-[#333333] text-[#222222] dark:text-white font-bold rounded-xl text-xs transition cursor-pointer"
             >
-              Fermer
+              Fermer 
             </button>
           </div>
         </div>
