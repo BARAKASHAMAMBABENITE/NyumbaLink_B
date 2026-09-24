@@ -265,23 +265,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Mobilier & Équipements</span>
             </div>
           </button>
-          {/* Bouton Mobilier & Équipements */}
-          <button
-            type="button"
-            onClick={() => {
-              if (openPartnerFurnitureModal) openPartnerFurnitureModal();
-              if (typeof window !== 'undefined' && window.innerWidth < 768) {
-                onClose();
-              }
-            }}
-            className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
-          >
-            <div className="flex items-center space-x-3">
-              <Sofa className="w-4 h-4 text-[#FF385C]" />
-              <span>Mobilier & Équipements</span>
-            </div>
-          </button>
-
+         
           {/* Bouton Devenir Partenaire Habitat */}
           <button
             type="button"
