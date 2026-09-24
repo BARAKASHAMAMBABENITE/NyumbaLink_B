@@ -45,18 +45,19 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   const [description, setDescription] = useState(property.description);
   const [price, setPrice] = useState<number | ''>(property.price);
   const [pricePeriod, setPricePeriod] = useState<'total' | 'mois'>(property.pricePeriod || 'mois');
-  const [type, setType] = useState<TransactionType>(property.type);
-  const [status, setStatus] = useState<PropertyStatus>(property.status || 'disponible');
-  const [category, setCategory] = useState<PropertyCategory>(property.category);
+  const [type, setType] = useState(property.type);
+  const [status, setStatus] = useState(property.status || 'disponible');
+  const [category, setCategory] = useState(property.category);
   const [commune, setCommune] = useState<BukavuCommune>(property.commune || 'Ibanda');
   const [neighborhood, setNeighborhood] = useState(property.neighborhood || BUKAVU_COMMUNES_WITH_NEIGHBORHOODS['Ibanda'][0]);
   const [parcelDimensions, setParcelDimensions] = useState(
     property.surface ? `${property.surface} m²` : '20m x 25m (500 m²)'
   );
   const [address, setAddress] = useState(property.address);
-  const [latitude, setLatitude] = useState<number>(property.latitude || -2.5080);
-  const [longitude, setLongitude] = useState<number>(property.longitude || 28.8600);
+  const [latitude, setLatitude] = useState(property.latitude || -2.5080);
+  const [longitude, setLongitude] = useState(property.longitude || 28.8600);
   const [surface, setSurface] = useState<number | ''>(property.surface || '');
+  const [livingRooms, setLivingRooms] = useState<number | ''>(property.livingRooms ?? '');
   const [bedrooms, setBedrooms] = useState<number | ''>(property.bedrooms ?? '');
   const [bathrooms, setBathrooms] = useState<number | ''>(property.bathrooms ?? '');
   const [kitchens, setKitchens] = useState<number | ''>(property.kitchens ?? '');
@@ -84,6 +85,7 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
       setLatitude(property.latitude || -2.5080);
       setLongitude(property.longitude || 28.8600);
       setSurface(property.surface || '');
+      setLivingRooms(property.livingRooms ?? '');
       setBedrooms(property.bedrooms ?? '');
       setBathrooms(property.bathrooms ?? '');
       setKitchens(property.kitchens ?? '');
@@ -259,6 +261,7 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         latitude,
         longitude,
         surface: category === 'parcelle' ? (surface ? Number(surface) : 500) : undefined,
+        livingRooms: category === 'parcelle' ? undefined : (livingRooms !== '' ? Number(livingRooms) : undefined),
         bedrooms: category === 'parcelle' ? undefined : (bedrooms !== '' ? Number(bedrooms) : undefined),
         bathrooms: category === 'parcelle' ? undefined : (bathrooms !== '' ? Number(bathrooms) : undefined),
         kitchens: category === 'parcelle' ? undefined : (kitchens !== '' ? Number(kitchens) : undefined),
@@ -276,21 +279,24 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-[#1e1e1e] text-[#222222] dark:text-[#f7f7f7] rounded-2xl max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-[#ebebeb] dark:border-[#2e2e2e] p-6 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-[#181818] w-full max-w-3xl rounded-3xl shadow-2xl border border-slate-200 dark:border-[#2e2e2e] p-6 max-h-[90vh] overflow-y-auto">
         {/* Modal Header */}
-        <div className="flex items-center space-x-3 mb-5 border-b border-[#ebebeb] dark:border-[#2e2e2e] pb-4">
-          <div className="w-10 h-10 rounded-xl bg-[#FF385C] text-white flex items-center justify-center font-bold">
-            <Edit3 className="w-5 h-5" />
-          </div>
+        <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-[#2e2e2e] mb-5">
           <div>
-            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+            <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">
               Modifier le bien
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Mettez à jour les informations du bien
             </p>
           </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-slate-600 dark:hover:text-white transition cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -462,7 +468,19 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 />
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-1">
+                    Salons
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="Ex: 1"
+                    value={livingRooms}
+                    onChange={(e) => setLivingRooms(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7] outline-hidden"
+                  />
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-[#f7f7f7] uppercase tracking-wider mb-1">
                     Chambres
@@ -700,7 +718,7 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                       className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-full shadow-md opacity-90 hover:opacity-100 transition cursor-pointer"
                       title="Supprimer la photo"
                     >
-                      <Trash2 className="w-3 h-3" />
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
@@ -708,22 +726,23 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
             )}
           </div>
 
-          {/* Submit Button */}
-          <div className="pt-4 border-t border-[#ebebeb] dark:border-[#2e2e2e] flex items-center justify-end space-x-3">
+          {/* Form Actions */}
+          <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-200 dark:border-[#2e2e2e]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition"
+              disabled={submitting}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting || uploadingImage}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#FF385C] hover:bg-[#e03150] text-white transition shadow-md flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-[#FF385C] hover:bg-[#e03150] text-white text-xs font-bold shadow-lg shadow-[#FF385C]/20 transition flex items-center space-x-2 cursor-pointer disabled:opacity-50"
             >
               {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>Enregistrer les modifications</span>
+              <span>{submitting ? 'Enregistrement...' : 'Enregistrer les modifications'}</span>
             </button>
           </div>
         </form>
