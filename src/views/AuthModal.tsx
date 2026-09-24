@@ -4,7 +4,6 @@ import {
   Lock,
   Mail,
   Phone,
-  Building2,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -54,13 +53,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
     setErrorMsg('');
     try {
-      const profile = await loginWithGoogle();
-      setUser(profile);
-      onClose();
+      // Utilise désormais signInWithRedirect (redirection complète)
+      await loginWithGoogle();
     } catch (err: any) {
       console.error('Google Auth Error:', err);
       setErrorMsg(err?.message || 'Erreur lors de la connexion Google.');
-    } finally {
       setLoading(false);
     }
   };
@@ -294,7 +291,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <input
                       type="email"
                       required
-                      placeholder="ben@gmail.com"
+                      placeholder="nom@exemple.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#151515] focus:ring-2 focus:ring-[#FF385C] focus:outline-hidden"
@@ -352,7 +349,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="BARAKA SHAMAMBA BENITE"
+                  placeholder="Nom Prénom"
                   value={fullname}
                   onChange={(e) => setFullname(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#151515] focus:ring-2 focus:ring-[#FF385C] focus:outline-hidden"
@@ -369,7 +366,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="email"
                   required
-                  placeholder="ben@gmail.com"
+                  placeholder="nom@exemple.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#151515] focus:ring-2 focus:ring-[#FF385C] focus:outline-hidden"
@@ -411,7 +408,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <Phone className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                 <input
                   type="tel"
-                  placeholder="+24398676017"
+                  placeholder="+243..."
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#151515] focus:ring-2 focus:ring-[#FF385C]"
@@ -445,7 +442,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 <input
                   type="email"
                   required
-                  placeholder="ben@gmail.com"
+                  placeholder="nom@exemple.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:bg-white dark:focus:bg-[#151515] focus:ring-2 focus:ring-[#FF385C] focus:outline-hidden"

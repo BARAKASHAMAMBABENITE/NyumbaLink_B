@@ -27,10 +27,10 @@ import { PartnerRegistrationModal } from './components/PartnerRegistrationModal'
 import { PartnerFurnitureModal } from './components/PartnerFurnitureModal';
 import { AgentSubscriptionModal } from './components/AgentSubscriptionModal';
 import { PWAInstallPrompt } from './components/PWAInstallPrompt';
-import { OnboardingSplashScreen } from './views/OnboardingSplashScreen';
 import { getUserInquiries, migrateLocalInquiriesToFirestore } from './services/inquiryService';
 import { getContractNotifications, migrateLocalContractsToFirestore } from './services/contractService';
 import { notifyNewPropertyPublished } from './services/notificationService';
+import { handleGoogleRedirectResult } from './services/authService';
 
 import {
   Property,
@@ -96,7 +96,7 @@ export default function App() {
       const saved = localStorage.getItem('nyumbalink_active_user');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.email && !parsed.email.includes('demo') && !parsed.email.includes('bahati') && !parsed.email.includes('mufasa')) {
+        if (parsed && parsed.email) {
           return normalizeUserProfile(parsed, parsed.uid);
         }
       }
@@ -106,6 +106,27 @@ export default function App() {
     return null;
   });
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+
+  // Vérification et enregistrement immédiat du résultat de la redirection Google au chargement initial
+  useEffect(() => {
+    const checkRedirect = async () => {
+      try {
+        const loggedUser = await handleGoogleRedirectResult();
+        if (loggedUser) {
+          const normalized = normalizeUserProfile(loggedUser, loggedUser.uid);
+          setUser(normalized);
+          try {
+            localStorage.setItem('nyumbalink_active_user', JSON.stringify(normalized));
+          } catch (storageErr) {
+            console.warn('Could not save redirected user to localStorage:', storageErr);
+          }
+        }
+      } catch (err) {
+        console.warn('Erreur lors de la récupération du résultat de redirection Google :', err);
+      }
+    };
+    checkRedirect();
+  }, []);
 
   useEffect(() => {
     setCurrentTab('home');
@@ -151,76 +172,14 @@ export default function App() {
   const [partnerModalOpen, setPartnerModalOpen] = useState(false);
   const [partnerFurnitureModalOpen, setPartnerFurnitureModalOpen] = useState(false);
 
-  // Onboarding Splash Screen state (shown on initial launch before login)
-  const [onboardingOpen, setOnboardingOpen] = useState<boolean>(() => {
-    try {
-      return !localStorage.getItem('nyumbalink_onboarded');
-    } catch {
-      return false;
-    }
-  });
-
-  const handleFinishOnboarding = (redirectToLogin: boolean) => {
-    try {
-      localStorage.setItem('nyumbalink_onboarded', 'true');
-    } catch {
-      // ignore
-    }
-    setOnboardingOpen(false);
-    if (redirectToLogin) {
-      setAuthModalOpen(true);
-    }
-  };
-
-  // User-isolated unread message inquiries count + contract expiry alerts
-  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
-  const [contractNotifications, setContractNotifications] = useState({
-    expired: [],
-    expiringSoon: [],
-    totalAlerts: 0,
-    unreadAlerts: 0
-  });
-
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.all([
-      migrateLocalInquiriesToFirestore(user),
-      migrateLocalContractsToFirestore(user)
-    ]);
-    Promise.all([getUserInquiries(user), getContractNotifications(user)]).then(([inquiries, alerts]) => {
-      if (cancelled) return;
-      setUnreadMessagesCount(inquiries.filter((item) => !item.isRead).length);
-      setContractNotifications(alerts);
-    });
-    return () => { cancelled = true; };
-  }, [user, messagesModalOpen]);
-
-  const totalNotificationsCount = unreadMessagesCount + contractNotifications.unreadAlerts;
-
-  // New properties alert count (properties created after lastSeenPropertiesTime)
-  const unreadNewPropertiesCount = properties.filter((p) => {
-    const propTime = new Date(p.createdAt || 0).getTime();
-    return propTime > (lastSeenPropertiesTime || 0);
-  }).length;
-
-  const handleMarkAllPropertiesViewed = () => {
-    const now = Date.now();
-    setLastSeenPropertiesTime(now);
-    try {
-      localStorage.setItem('nyumbalink_last_prop_view_time', now.toString());
-    } catch (e) {
-      console.warn('Could not save last viewed property time:', e);
-    }
-  };
-
   const triggerAuthNotice = (message: string) => {
     setAuthNotice(message);
-    setOnboardingOpen(true);
+    setAuthModalOpen(true);
   };
 
   const handleOpenAuthModal = (customMessage?: string) => {
     setAuthNotice(customMessage || undefined);
-    setOnboardingOpen(true);
+    setAuthModalOpen(true);
   };
 
   const handleSetCurrentTab = (tab: string) => {
@@ -273,6 +232,47 @@ export default function App() {
       return;
     }
     setMessagesModalOpen(true);
+  };
+
+  // User-isolated unread message inquiries count + contract expiry alerts
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [contractNotifications, setContractNotifications] = useState({
+    expired: [],
+    expiringSoon: [],
+    totalAlerts: 0,
+    unreadAlerts: 0
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([
+      migrateLocalInquiriesToFirestore(user),
+      migrateLocalContractsToFirestore(user)
+    ]);
+    Promise.all([getUserInquiries(user), getContractNotifications(user)]).then(([inquiries, alerts]) => {
+      if (cancelled) return;
+      setUnreadMessagesCount(inquiries.filter((item) => !item.isRead).length);
+      setContractNotifications(alerts);
+    });
+    return () => { cancelled = true; };
+  }, [user, messagesModalOpen]);
+
+  const totalNotificationsCount = unreadMessagesCount + contractNotifications.unreadAlerts;
+
+  // New properties alert count (properties created after lastSeenPropertiesTime)
+  const unreadNewPropertiesCount = properties.filter((p) => {
+    const propTime = new Date(p.createdAt || 0).getTime();
+    return propTime > (lastSeenPropertiesTime || 0);
+  }).length;
+
+  const handleMarkAllPropertiesViewed = () => {
+    const now = Date.now();
+    setLastSeenPropertiesTime(now);
+    try {
+      localStorage.setItem('nyumbalink_last_prop_view_time', now.toString());
+    } catch (e) {
+      console.warn('Could not save last viewed property time:', e);
+    }
   };
 
   // Sync user changes to localStorage
@@ -468,14 +468,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-[#f7f7f7] dark:bg-[#121212] text-[#222222] dark:text-[#f7f7f7] selection:bg-[#FF385C] selection:text-white transition-colors">
-      {/* Onboarding / Splash Screen Component (displays on initial arrival before auth) */}
-      <OnboardingSplashScreen
-        isOpen={onboardingOpen}
-        onGetStarted={() => handleFinishOnboarding(true)}
-        onExploreAsGuest={() => handleFinishOnboarding(false)}
-      />
-
+    <div className="min-h-screen flex flex-col md:flex-row bg-[#f7f7f7] dark:bg-[#121212] text-[#222222] dark:text-[#f7f7f7] selection:bg-[#FF385C] selection:text-white transition-colors">
       {/* Sidebar: Visible docked on PC/tablet (md:), drawer overlay on mobile */}
       <Sidebar
         isOpen={sidebarOpen}
@@ -489,7 +482,7 @@ export default function App() {
         openAddPropertyModal={handleOpenAddPropertyModal}
         openAuthModal={() => handleOpenAuthModal()}
         openMessagesModal={handleOpenMessagesModal}
-        openOnboarding={() => setOnboardingOpen(true)}
+        openOnboarding={() => handleOpenAuthModal()}
         openPartnerModal={() => setPartnerModalOpen(true)}
         openPartnerFurnitureModal={() => setPartnerFurnitureModalOpen(true)}
         onLogout={() => {
@@ -498,7 +491,7 @@ export default function App() {
       />
 
       {/* Main Content Area (Navbar, View Router, Footer) */}
-      <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Navbar */}
         <Navbar
           currentTab={currentTab}
@@ -518,8 +511,8 @@ export default function App() {
           onToggleSidebar={() => setSidebarOpen(true)}
         />
 
-        {/* Main Content Router with Independent Scroll */}
-        <main className="flex-1 overflow-y-auto max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
+        {/* Main Content Router */}
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
         {currentTab === 'listings' ? (
           <ListingsView
             properties={properties}
@@ -615,25 +608,13 @@ export default function App() {
             user={user}
           />
         )}
+      </main>
 
         {/* Footer */}
         <Footer />
-        </main>
       </div>
 
       {/* Modals */}
-      <OnboardingSplashScreen
-        isOpen={onboardingOpen}
-        onGetStarted={() => {
-          handleFinishOnboarding(true);
-        }}
-        onClose={() => {
-          handleFinishOnboarding(false);
-          setAuthNotice(undefined);
-        }}
-        noticeMessage={authNotice}
-      />
-
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => {
@@ -723,6 +704,7 @@ export default function App() {
         isAdminMode={false}
       />
 
+      {/* Progressive Web App Install Banner & Service Worker Controller */}
       <PWAInstallPrompt />
     </div>
   );

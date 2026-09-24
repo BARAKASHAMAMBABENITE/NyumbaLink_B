@@ -11,7 +11,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
-import { UserProfile, UserRole, AgentSubscriptionPlan } from '../types';
+import { UserProfile, UserRole } from '../types';
 
 export const ADMIN_EMAIL = 'benbarakashamamba@gmail.com';
 export const ADMIN_EMAILS = [
@@ -81,17 +81,7 @@ const resolveRole = (email: string, defaultRole: UserRole = 'client'): UserRole 
 };
 
 /**
- * Generate a deterministic safe UID for users
- */
-const generateDeterministicUid = (email: string): string => {
-  const clean = email.trim().toLowerCase();
-  const hash = Math.abs(clean.split('').reduce((acc, char) => ((acc << 5) - acc) + char.charCodeAt(0), 0)).toString(36);
-  const alphaPart = clean.replace(/[^a-z0-9]/g, '').slice(0, 10);
-  return `usr_${alphaPart}_${hash}`;
-};
-
-/**
- * Sign in using Google Account via Firebase Auth GoogleAuthProvider
+ * Sign in using Google Account via Popup method
  */
 export const loginWithGoogle = async (): Promise<UserProfile> => {
   const provider = new GoogleAuthProvider();
@@ -142,7 +132,87 @@ export const loginWithGoogle = async (): Promise<UserProfile> => {
       return fallbackProfile;
     }
   } catch (err: any) {
-    console.error('Google Auth Error:', err);
+    console.error('Google Popup Auth Error:', err);
+    throw new Error(formatFirebaseAuthErrorMessage(err));
+  }
+};
+
+/**
+ * Fonction de compatibilité pour le redirect Google
+ */
+export const handleGoogleRedirectResult = async (): Promise<UserProfile | null> => {
+  return null;
+};
+
+/**
+ * Standard Email & Password Login
+ */
+export const loginUser = async (email: string, pass: string): Promise<UserProfile> => {
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const cred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
+    const uid = cred.user.uid;
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      return userDoc.data() as UserProfile;
+    }
+    const fallback: UserProfile = {
+      uid,
+      fullname: cleanEmail.split('@')[0],
+      email: cleanEmail,
+      role: resolveRole(cleanEmail, 'client'),
+      createdAt: new Date().toISOString()
+    };
+    return fallback;
+  } catch (err: any) {
+    console.error('Login Error:', err);
+    throw new Error(formatFirebaseAuthErrorMessage(err));
+  }
+};
+
+/**
+ * Standard Email & Password Registration
+ */
+export const registerUser = async (
+  email: string,
+  pass: string,
+  fullname: string,
+  role: UserRole = 'client',
+  phone?: string
+): Promise<UserProfile> => {
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, cleanEmail, pass);
+    const uid = cred.user.uid;
+    const assignedRole = resolveRole(cleanEmail, role);
+
+    const profile: UserProfile = {
+      uid,
+      fullname: fullname.trim(),
+      email: cleanEmail,
+      role: assignedRole,
+      phone: phone?.trim() || undefined,
+      createdAt: new Date().toISOString()
+    };
+
+    await setDoc(doc(db, 'users', uid), profile);
+    return profile;
+  } catch (err: any) {
+    console.error('Registration Error:', err);
+    throw new Error(formatFirebaseAuthErrorMessage(err));
+  }
+};
+
+/**
+ * Send Password Reset Email
+ */
+export const resetUserPassword = async (email: string): Promise<boolean> => {
+  const cleanEmail = email.trim().toLowerCase();
+  try {
+    await sendPasswordResetEmail(auth, cleanEmail);
+    return true;
+  } catch (err: any) {
+    console.error('Password Reset Error:', err);
     throw new Error(formatFirebaseAuthErrorMessage(err));
   }
 };
@@ -165,302 +235,90 @@ export const sendMagicLink = async (email: string): Promise<boolean> => {
     window.localStorage.setItem('emailForSignIn', trimmed);
     return true;
   } catch (err: any) {
-    console.warn('sendSignInLinkToEmail note (fallback enabled):', err?.code);
-    // If Email Link sign in is not toggled on in Firebase Console (auth/operation-not-allowed),
-    // save email locally and return true so the user can complete 1-click login without blocking!
+    console.warn('sendSignInLinkToEmail note:', err?.code);
     window.localStorage.setItem('emailForSignIn', trimmed);
     return true;
   }
 };
 
 /**
- * Direct Instant Sign-In with Magic Email / Email Link fallback
+ * Valide et finalise la connexion via le lien magique cliqué dans l'e-mail
  */
-export const instantEmailLogin = async (email: string): Promise<UserProfile> => {
-  const cleanEmail = email.trim().toLowerCase();
-  if (!isValidEmail(cleanEmail)) {
-    throw new Error('Adresse e-mail invalide.');
-  }
-  const uid = generateDeterministicUid(cleanEmail);
-  const fallbackProfile: UserProfile = {
-    uid,
-    fullname: cleanEmail.split('@')[0] || 'Utilisateur',
-    email: cleanEmail,
-    role: resolveRole(cleanEmail, 'client'),
-    createdAt: new Date().toISOString()
-  };
-
+export const completeMagicLinkSignIn = async (): Promise<UserProfile | null> => {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      const data = userDoc.data() as UserProfile;
-      if (isAdminEmail(cleanEmail) && data.role !== 'admin') {
-        data.role = 'admin';
-        await updateDoc(doc(db, 'users', uid), { role: 'admin' });
+    const currentUrl = window.location.href;
+    if (isSignInWithEmailLink(auth, currentUrl)) {
+      let email = window.localStorage.getItem('emailForSignIn');
+      if (!email) {
+        email = window.prompt('Veuillez confirmer votre adresse e-mail pour finaliser la connexion :');
       }
-      return data;
-    }
-    await setDoc(doc(db, 'users', uid), fallbackProfile);
-    return fallbackProfile;
-  } catch (dbErr) {
-    console.warn('Firestore direct email login note:', dbErr);
-    return fallbackProfile;
-  }
-};
+      if (!email) {
+        throw new Error('Adresse e-mail requise pour valider le lien.');
+      }
 
-/**
- * Complete Magic Link Sign-In with Email
- */
-export const completeMagicLinkLogin = async (email: string): Promise<UserProfile> => {
-  const trimmed = email.trim().toLowerCase();
-  if (!isValidEmail(trimmed)) {
-    throw new Error('Adresse e-mail invalide.');
-  }
+      const cred = await signInWithEmailLink(auth, email, currentUrl);
+      window.localStorage.removeItem('emailForSignIn');
 
-  try {
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      const cred = await signInWithEmailLink(auth, trimmed, window.location.href);
       const uid = cred.user.uid;
+      const userEmail = cred.user.email || email.trim().toLowerCase();
+      
+      const fallbackProfile: UserProfile = {
+        uid,
+        fullname: cred.user.displayName || userEmail.split('@')[0] || 'Utilisateur',
+        email: userEmail,
+        role: resolveRole(userEmail, 'client'),
+        createdAt: new Date().toISOString()
+      };
+
       const userDoc = await getDoc(doc(db, 'users', uid));
       if (userDoc.exists()) {
         return userDoc.data() as UserProfile;
+      } else {
+        await setDoc(doc(db, 'users', uid), fallbackProfile);
+        return fallbackProfile;
       }
-      const newProfile: UserProfile = {
-        uid,
-        fullname: trimmed.split('@')[0],
-        email: trimmed,
-        role: resolveRole(trimmed, 'client'),
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'users', uid), newProfile);
-      return newProfile;
     }
-    return await instantEmailLogin(trimmed);
+    return null;
   } catch (err: any) {
-    console.warn('Magic link completion note (using instant email login):', err);
-    return await instantEmailLogin(trimmed);
-  }
-};
-
-/**
- * Register a real user account with email, strong password, fullname and phone
- */
-export const registerUser = async (
-  email: string,
-  pass: string,
-  fullname: string,
-  role: UserRole = 'client',
-  phone: string = ''
-): Promise<UserProfile> => {
-  const cleanEmail = email.trim().toLowerCase();
-  const cleanPass = pass.trim();
-  const cleanName = fullname.trim();
-
-  if (!cleanName || cleanName.length < 2) {
-    throw new Error('Veuillez saisir votre nom complet (au moins 2 caractères).');
-  }
-
-  if (!isValidEmail(cleanEmail)) {
-    throw new Error('Veuillez renseigner une adresse e-mail valide (ex: utilisateur@gmail.com).');
-  }
-
-  if (!isValidPassword(cleanPass)) {
-    throw new Error('Le mot de passe doit contenir au moins 8 caractères.');
-  }
-
-  const actualRole = resolveRole(cleanEmail, role);
-
-  try {
-    const cred = await createUserWithEmailAndPassword(auth, cleanEmail, cleanPass);
-    const profile: UserProfile = {
-      uid: cred.user.uid,
-      fullname: cleanName,
-      email: cleanEmail,
-      role: actualRole,
-      phone: phone.trim(),
-      createdAt: new Date().toISOString()
-    };
-    try {
-      await setDoc(doc(db, 'users', cred.user.uid), profile);
-    } catch (dbErr) {
-      console.warn('Firestore user doc sync note:', dbErr);
-    }
-    return profile;
-  } catch (err: any) {
-    console.warn('Firebase Auth register attempt returned:', err?.code);
-    
-    // If Firebase Auth provider is not enabled (auth/operation-not-allowed)
-    // or has transient provider setup issues, seamlessly create the profile in Firestore!
-    if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/configuration-not-found') {
-      const fallbackUid = generateDeterministicUid(cleanEmail);
-      const fallbackProfile: UserProfile = {
-        uid: fallbackUid,
-        fullname: cleanName,
-        email: cleanEmail,
-        role: actualRole,
-        phone: phone.trim(),
-        createdAt: new Date().toISOString()
-      };
-      try {
-        await setDoc(doc(db, 'users', fallbackUid), fallbackProfile, { merge: true });
-      } catch (dbErr) {
-        console.warn('Firestore fallback register save note:', dbErr);
-      }
-      return fallbackProfile;
-    }
-
+    console.error('Magic Link Sign In Error:', err);
     throw new Error(formatFirebaseAuthErrorMessage(err));
   }
 };
 
 /**
- * Sign in existing user with email and password
+ * Déconnecte l'utilisateur de Firebase
  */
-export const loginUser = async (email: string, pass: string): Promise<UserProfile> => {
-  const cleanEmail = email.trim().toLowerCase();
-  const cleanPass = pass.trim();
-
-  if (!isValidEmail(cleanEmail)) {
-    throw new Error('Veuillez renseigner une adresse e-mail valide.');
-  }
-
-  if (!cleanPass) {
-    throw new Error('Veuillez renseigner votre mot de passe.');
-  }
-
-  try {
-    const cred = await signInWithEmailAndPassword(auth, cleanEmail, cleanPass);
-    const defaultProfile: UserProfile = {
-      uid: cred.user.uid,
-      fullname: cred.user.displayName || cleanEmail.split('@')[0],
-      email: cleanEmail,
-      role: resolveRole(cleanEmail, 'client'),
-      createdAt: new Date().toISOString()
-    };
-
-    try {
-      const userDoc = await getDoc(doc(db, 'users', cred.user.uid));
-      if (userDoc.exists()) {
-        const data = userDoc.data() as UserProfile;
-        if (isAdminEmail(cleanEmail) && data.role !== 'admin') {
-          data.role = 'admin';
-          await updateDoc(doc(db, 'users', cred.user.uid), { role: 'admin' });
-        }
-        return data;
-      }
-      await setDoc(doc(db, 'users', cred.user.uid), defaultProfile);
-      return defaultProfile;
-    } catch (dbErr) {
-      console.warn('Firestore read/write note on login:', dbErr);
-      return defaultProfile;
-    }
-  } catch (err: any) {
-    console.warn('Firebase Auth login attempt returned:', err?.code);
-
-    // If Email/Password provider isn't enabled in Firebase Console (auth/operation-not-allowed)
-    // or user registered via fallback, seamlessly check Firestore & authenticate!
-    if (err?.code === 'auth/operation-not-allowed' || err?.code === 'auth/configuration-not-found') {
-      const fallbackUid = generateDeterministicUid(cleanEmail);
-      const defaultProfile: UserProfile = {
-        uid: fallbackUid,
-        fullname: cleanEmail.split('@')[0],
-        email: cleanEmail,
-        role: resolveRole(cleanEmail, 'client'),
-        createdAt: new Date().toISOString()
-      };
-
-      try {
-        const userDoc = await getDoc(doc(db, 'users', fallbackUid));
-        if (userDoc.exists()) {
-          const data = userDoc.data() as UserProfile;
-          if (isAdminEmail(cleanEmail) && data.role !== 'admin') {
-            data.role = 'admin';
-            await updateDoc(doc(db, 'users', fallbackUid), { role: 'admin' });
-          }
-          return data;
-        }
-        await setDoc(doc(db, 'users', fallbackUid), defaultProfile);
-        return defaultProfile;
-      } catch (dbErr) {
-        console.warn('Firestore fallback login read/write note:', dbErr);
-        return defaultProfile;
-      }
-    }
-
-    throw new Error(formatFirebaseAuthErrorMessage(err));
-  }
-};
-
 export const logoutUser = async (): Promise<void> => {
   try {
     await signOut(auth);
-  } catch (e) {
-    console.warn('Sign out warning:', e);
-  }
-};
-
-export const resetUserPassword = async (email: string): Promise<void> => {
-  const cleanEmail = email.trim().toLowerCase();
-  if (!isValidEmail(cleanEmail)) {
-    throw new Error('Veuillez saisir une adresse e-mail valide pour réinitialiser le mot de passe.');
-  }
-  try {
-    await sendPasswordResetEmail(auth, cleanEmail);
   } catch (err: any) {
-    console.error('Reset password error:', err);
-    throw new Error(formatFirebaseAuthErrorMessage(err));
+    console.error('Logout Error:', err);
+    throw new Error('Erreur lors de la déconnexion.');
   }
 };
 
-export const fetchUserProfile = async (uid: string): Promise<UserProfile | null> => {
+/**
+ * Met à jour le profil de l'utilisateur dans Firestore
+ */
+export const updateUserProfileInFirestore = async (uid: string, updates: Partial<UserProfile>): Promise<void> => {
   try {
-    const snap = await getDoc(doc(db, 'users', uid));
-    if (snap.exists()) {
-      return snap.data() as UserProfile;
-    }
-  } catch (e) {
-    console.warn('Error fetching user profile:', e);
-  }
-  return null;
-};
-
-export const updateUserRoleInFirestore = async (uid: string, newRole: UserRole): Promise<void> => {
-  try {
-    await updateDoc(doc(db, 'users', uid), { role: newRole });
-  } catch (e) {
-    console.warn('Error updating role in Firestore:', e);
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, updates);
+  } catch (err: any) {
+    console.error('Update Profile Error:', err);
+    throw new Error('Erreur lors de la mise à jour du profil.');
   }
 };
 
-export const updateAgentSubscriptionInFirestore = async (
-  uid: string,
-  plan: AgentSubscriptionPlan,
-  priceUSD: number,
-  agentExpiresAt: string,
-  agencyName?: string
-): Promise<void> => {
+/**
+ * Met à jour le rôle d'un utilisateur dans Firestore
+ */
+export const updateUserRoleInFirestore = async (uid: string, role: string): Promise<void> => {
   try {
-    await updateDoc(doc(db, 'users', uid), {
-      role: 'agent',
-      subscriptionPlan: plan,
-      subscriptionAmount: priceUSD,
-      subscriptionStartedAt: new Date().toISOString(),
-      agentExpiresAt: agentExpiresAt,
-      isVerifiedAgent: true,
-      agencyName: agencyName || 'Agence Immobilière Agréée'
-    });
-  } catch (e) {
-    console.warn('Error updating agent subscription in Firestore:', e);
-  }
-};
-
-export const updateUserProfileInFirestore = async (
-  uid: string,
-  updates: Partial<UserProfile>
-): Promise<void> => {
-  try {
-    await updateDoc(doc(db, 'users', uid), updates);
-  } catch (e) {
-    console.warn('Error updating profile in Firestore:', e);
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, { role });
+  } catch (err: any) {
+    console.error('Update Role Error:', err);
+    throw new Error('Erreur lors de la mise à jour du rôle.');
   }
 };
