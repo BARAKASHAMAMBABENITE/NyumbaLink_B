@@ -335,13 +335,17 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, propert
           </div>
 
           <div className="pt-2 flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-5 py-2 bg-stone-100 dark:bg-[#282828] hover:bg-stone-200 dark:hover:bg-[#333333] text-[#222222] dark:text-white font-bold rounded-xl text-xs transition cursor-pointer"
-            >
-              Fermer 
-            </button>
+          <div className="pt-2 flex justify-end">
+  <div className="pt-2 flex justify-end">
+  <button
+    type="button"
+    onClick={onClose}
+    className="px-5 py-2 bg-transparent hover:bg-slate-100 dark:hover:bg-[#333333] text-slate-900 dark:text-white font-bold rounded-xl text-xs transition cursor-pointer shadow-none"
+  >
+    Fermer
+  </button>
+</div>
+</div>
           </div>
         </div>
       </div>

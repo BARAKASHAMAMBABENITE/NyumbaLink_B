@@ -211,11 +211,12 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
             </div>
           )}
 
+          {/* Bouton Partager corrigé avec texte sombre bien visible en mode clair */}
           <button
             onClick={handleShare}
-            className="flex items-center space-x-1.5 bg-white dark:bg-[#1e1e1e] border border-slate-200 dark:border-[#2e2e2e] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+            className="flex items-center space-x-1.5 bg-white dark:bg-[#1e1e1e] border border-slate-300 dark:border-[#2e2e2e] text-slate-900 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/5 px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
           >
-            <Share2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+            <Share2 className="w-4 h-4 text-slate-700 dark:text-slate-400" />
             <span>Partager</span>
           </button>
 
@@ -306,7 +307,7 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
           )}
           <button
             onClick={handleShare}
-            className="p-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-[#2e2e2e] text-slate-700 dark:text-slate-200 rounded-xl cursor-pointer"
+            className="p-2 bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-[#2e2e2e] text-slate-900 dark:text-slate-200 rounded-xl cursor-pointer"
             title="Partager"
           >
             <Share2 className="w-4 h-4" />
@@ -412,13 +413,14 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
                 </div>
               )}
 
-              {property.category === 'parcelle' && property.surface !== undefined && property.surface > 0 && (
+              {/* Affichage exact de la surface saisie par l'utilisateur sans forcer m² */}
+              {property.surface !== undefined && property.surface !== null && String(property.surface).trim() !== '' && (
                 <div className="col-span-2 sm:col-span-4 flex items-center space-x-2.5 p-3 rounded-xl bg-white dark:bg-[#181818] border border-slate-200/60 dark:border-[#282828]">
                   <Maximize2 className="w-5 h-5 text-[#FF385C] shrink-0" />
                   <div>
-                    <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Superficie</span>
+                    <span className="block text-[10px] text-slate-500 uppercase tracking-wider">Superficie / Mesure</span>
                     <span className="text-xs font-bold text-[#222222] dark:text-[#f7f7f7]">
-                      {property.surface} m²
+                      {property.surface}
                     </span>
                   </div>
                 </div>
@@ -671,35 +673,81 @@ export const PropertyDetailView: React.FC<PropertyDetailViewProps> = ({
 
                 <div className="space-y-1">
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
-                    Message
+                    Message personnalisé
                   </label>
                   <textarea
                     rows={3}
                     value={clientMessage}
                     onChange={(e) => setClientMessage(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#FF385C]"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#FF385C] resize-none"
+                    required
                   />
                 </div>
 
-                <div className="flex gap-2 pt-2">
+                <div className="flex flex-col sm:flex-row gap-2 pt-2">
                   <button
                     type="button"
                     onClick={handleWhatsAppRedirect}
-                    className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer flex items-center justify-center space-x-1.5"
+                    className="flex-1 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center space-x-2 cursor-pointer"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                    <span>WhatsApp</span>
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Envoyer sur WhatsApp</span>
                   </button>
+
                   <button
                     type="submit"
                     disabled={isSending}
-                    className="flex-1 bg-[#FF385C] hover:opacity-95 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer disabled:opacity-50"
+                    className="flex-1 bg-[#FF385C] hover:opacity-95 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
                   >
-                    {isSending ? 'Envoi...' : 'Envoyer la demande'}
+                    {isSending ? (
+                      <span>Envoi en cours...</span>
+                    ) : (
+                      <span>Confirmer la demande</span>
+                    )}
                   </button>
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* MODALE DE CONFIRMATION DE SUPPRESSION */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white dark:bg-[#1e1e1e] max-w-sm w-full rounded-3xl p-6 border border-slate-200 dark:border-[#2e2e2e] shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Confirmer la suppression
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Êtes-vous sûr de vouloir supprimer définitivement ce bien ? Cette action est irréversible.
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="flex-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (onDeleteProperty) {
+                    onDeleteProperty(property.id);
+                  }
+                  setShowDeleteConfirm(false);
+                }}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-xs transition cursor-pointer"
+              >
+                Supprimer
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -28,8 +28,6 @@ const getApiKey = () => {
   return '';
 };
 
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
-
 export function fileToBase64(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -51,7 +49,14 @@ export function fileToBase64(file: File | Blob): Promise<string> {
 export async function validatePropertyImageWithAI(
   fileOrBase64OrUrl: File | string
 ): Promise<ImageValidationResult> {
+  const apiKey = getApiKey();
+  
+  if (!apiKey) {
+    return { isRealEstate: true, confidence: 0.8, detectedCategory: 'immobilier', reason: "Accepté par défaut" };
+  }
+
   try {
+    const ai = new GoogleGenAI({ apiKey });
     let base64Data = '';
     let mimeType = 'image/jpeg';
 
@@ -62,12 +67,7 @@ export async function validatePropertyImageWithAI(
           mimeType = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg';
           base64Data = parts[1];
         } else {
-          return {
-            isRealEstate: true,
-            confidence: 0.9,
-            detectedCategory: 'immobilier',
-            reason: "URL acceptée."
-          };
+          return { isRealEstate: true, confidence: 0.9, detectedCategory: 'immobilier', reason: "URL acceptée" };
         }
       } else {
         base64Data = fileOrBase64OrUrl.includes(',') ? fileOrBase64OrUrl.split(',')[1] : fileOrBase64OrUrl;
@@ -87,21 +87,25 @@ export async function validatePropertyImageWithAI(
           }
         },
         {
-          text: `Analyse cette image. Est-ce un bien immobilier (maison, immeuble, villa, appartement, parcelle, terrain) OU un document/papier écrit (contrat, plan, titre foncier) OU une illustration/rendu 3D de maison (provenant d'IA comme ChatGPT ou Gemini) ?
-Si OUI (c'est une maison, un bâtiment, une parcelle, un plan ou un document écrit), réponds par true.
-Si c'est un selfie, une personne seule, un animal, un véhicule seul ou un appareil électronique sans lien avec l'immobilier, réponds par false.
+          text: `RÈGLE DE SÉCURITÉ ANTI-PERSONNES : Analyse le sujet PRINCIPAL de cette image.
+- Est-ce que le sujet principal est une personne qui pose (portrait, selfie, individu en gros plan ou en plan moyen, même s'il se trouve devant une porte, un mur ou un bâtiment) ? Si OUI, réponds STRICTEMENT : {"isRealEstate": false, "confidence": 1.0, "reason": "Personne interdite"}
+- Est-ce un animal ou de la nourriture/un plat ? Si OUI, réponds : {"isRealEstate": false, "confidence": 1.0, "reason": "Interdit"}
+- Pour tout le reste (vues de maisons, pièces, salons, chantiers, briques, tôles, parcelles, plans, rues sans personne au premier plan), réponds : {"isRealEstate": true, "confidence": 1.0, "reason": "Accepté"}
 
-Réponds STRICTEMENT au format JSON brut, sans markdown, avec ces clés :
-{"isRealEstate": true ou false, "confidence": 0.9, "reason": "explication courte"}`
+Réponds UNIQUEMENT sous forme d'un objet JSON pur, sans markdown, sans texte autour :
+{"isRealEstate": true ou false, "confidence": 1.0, "reason": "explication"}`
         }
-      ]
+      ],
+      config: {
+        temperature: 0,
+      }
     });
 
     const textResponse = response.text?.trim() || '';
-    // Nettoyage robuste pour extraire le JSON même si l'IA ajoute des balises
     const jsonMatch = textResponse.match(/\{[\s\S]*\}/);
+    
     if (!jsonMatch) {
-      throw new Error("Format de réponse de l'IA invalide");
+      return { isRealEstate: true, confidence: 0.8, detectedCategory: 'immobilier', reason: "Accepté par défaut" };
     }
     
     const data = JSON.parse(jsonMatch[0]);
@@ -110,17 +114,16 @@ Réponds STRICTEMENT au format JSON brut, sans markdown, avec ces clés :
       isRealEstate: Boolean(data.isRealEstate),
       confidence: typeof data.confidence === 'number' ? data.confidence : 0.9,
       detectedCategory: data.isRealEstate ? 'immobilier' : 'non-conforme',
-      reason: data.reason || (data.isRealEstate ? 'Image acceptée.' : 'Image refusée : seuls les biens immobiliers, documents et illustrations de maisons sont acceptés.')
+      reason: data.isRealEstate ? 'Accepté' : 'Refusé : Les photos de personnes (portraits/selfies) ne sont pas autorisées.'
     };
 
   } catch (error: any) {
-    console.warn('[ImageValidation] Erreur lors de l’analyse Gemini, basculement sécurisé sur l\'acceptation de l\'image :', error);
-    // En cas d'erreur de parsing ou de réseau, on autorise l'image pour éviter de bloquer l'utilisateur inutilement
+    console.warn('[ImageValidation] Erreur lors de l’analyse Gemini :', error);
     return {
       isRealEstate: true,
-      confidence: 0.8,
+      confidence: 0.7,
       detectedCategory: 'immobilier',
-      reason: "Image acceptée."
+      reason: "Accepté par défaut"
     };
   }
 }

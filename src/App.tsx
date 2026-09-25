@@ -211,13 +211,11 @@ export default function App() {
       return;
     }
 
-    // Strict RBAC: Clients cannot publish directly
     if (user.role === 'client') {
       setAgentSubscriptionModalOpen(true);
       return;
     }
 
-    // Agents must have an active subscription
     if (user.role === 'agent' && !isAgentSubscriptionActive(user)) {
       setAgentSubscriptionModalOpen(true);
       return;
@@ -234,7 +232,6 @@ export default function App() {
     setMessagesModalOpen(true);
   };
 
-  // User-isolated unread message inquiries count + contract expiry alerts
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [contractNotifications, setContractNotifications] = useState({
     expired: [],
@@ -259,7 +256,6 @@ export default function App() {
 
   const totalNotificationsCount = unreadMessagesCount + contractNotifications.unreadAlerts;
 
-  // New properties alert count (properties created after lastSeenPropertiesTime)
   const unreadNewPropertiesCount = properties.filter((p) => {
     const propTime = new Date(p.createdAt || 0).getTime();
     return propTime > (lastSeenPropertiesTime || 0);
@@ -275,7 +271,6 @@ export default function App() {
     }
   };
 
-  // Sync user changes to localStorage
   useEffect(() => {
     try {
       if (user) {
@@ -288,7 +283,6 @@ export default function App() {
     }
   }, [user]);
 
-  // Subscribe to Firebase Auth state
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
@@ -324,7 +318,6 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Fetch initial data
   useEffect(() => {
     const loadData = async () => {
       const propList = await getAllProperties();
@@ -335,7 +328,6 @@ export default function App() {
       syncFavoritesWithExistingProperties(propList.map((p) => p.id));
       setFavoriteIds(validFavs);
 
-      // Check if URL has direct property link ?property=ID or #property=ID
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search);
         const propId = params.get('property') || (window.location.hash.includes('property=') ? window.location.hash.split('property=')[1]?.split('&')[0] : null);
@@ -357,14 +349,12 @@ export default function App() {
 
     loadData();
 
-    // Track activity for admin analytics
     recordPageVisit(currentTab, user);
     if (user) {
       recordUserLoginSession(user, currentTab);
     }
   }, [user, currentTab]);
 
-  // Toggle Favorites (Instant Optimistic UI update)
   const handleToggleFavorite = async (propertyId: string) => {
     if (!user) {
       triggerAuthNotice('Veuillez vous connecter pour ajouter des propriétés à vos favoris ! ');
@@ -372,24 +362,20 @@ export default function App() {
     }
 
     const wasFavorite = favoriteIds.includes(propertyId);
-    // Instant UI update
     setFavoriteIds((prev) =>
       wasFavorite ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]
     );
 
-    // Save in background
     try {
       await toggleFavoriteStatus(user.uid, propertyId);
     } catch (err) {
       console.warn('Error toggling favorite in background:', err);
-      // Revert if error
       setFavoriteIds((prev) =>
         wasFavorite ? [...prev, propertyId] : prev.filter((id) => id !== propertyId)
       );
     }
   };
 
-  // Open Details View
   const handleSelectProperty = (property: Property) => {
     const newViews = (property.viewsCount || 0) + 1;
     const propertyWithView = { ...property, viewsCount: newViews };
@@ -402,7 +388,6 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Add Property (Agent/Admin)
   const handleAddProperty = async (
     newProp: Omit<Property, 'id' | 'viewsCount' | 'createdAt'>
   ) => {
@@ -420,7 +405,6 @@ export default function App() {
       }, 150);
     }
 
-    // Trigger native mobile push notification
     try {
       notifyNewPropertyPublished(created);
     } catch (e) {
@@ -428,7 +412,6 @@ export default function App() {
     }
   };
 
-  // Update Property Details
   const handleUpdateProperty = async (id: string, updates: Partial<Property>) => {
     const updated = await updatePropertyInStore(id, updates);
     if (updated) {
@@ -439,7 +422,6 @@ export default function App() {
     }
   };
 
-  // Update Status
   const handleUpdatePropertyStatus = async (id: string, status: PropertyStatus) => {
     const updated = await updatePropertyInStore(id, { status });
     if (updated) {
@@ -450,7 +432,6 @@ export default function App() {
     }
   };
 
-  // Delete Property (Agent / Admin)
   const handleDeleteProperty = async (id: string) => {
     if (!user) return;
     await deletePropertyFromStore(id, user.uid);
@@ -461,16 +442,13 @@ export default function App() {
     }
   };
 
-  // Select neighborhood and view on map
   const handleSelectNeighborhood = (neighborhood: string) => {
     setFilterOptions((prev) => ({ ...prev, neighborhood }));
     setCurrentTab('map');
   };
 
   return (
-    // h-screen et overflow-hidden sur le conteneur global pour bloquer le défilement général de la page
     <div className="h-screen overflow-hidden flex flex-col md:flex-row bg-[#f7f7f7] dark:bg-[#121212] text-[#222222] dark:text-[#f7f7f7] selection:bg-[#FF385C] selection:text-white transition-colors">
-      {/* Sidebar fixe */}
       <Sidebar
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -491,9 +469,7 @@ export default function App() {
         }}
       />
 
-      {/* Main Content Area (Navbar fixe et contenu scrollable indépendamment) */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        {/* Top Header Navbar fixe */}
         <Navbar
           currentTab={currentTab}
           setCurrentTab={handleSetCurrentTab}
@@ -512,7 +488,6 @@ export default function App() {
           onToggleSidebar={() => setSidebarOpen(true)}
         />
 
-        {/* Contenu principal scrollable (overflow-y-auto) */}
         <main className="flex-1 overflow-y-auto max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-20">
         {currentTab === 'listings' ? (
           <ListingsView
@@ -592,7 +567,6 @@ export default function App() {
             onOpenAuthModal={() => setAuthModalOpen(true)}
           />
         ) : (
-          /* Default Fallback to Home View */
           <HomeView
             properties={properties}
             favoriteIds={favoriteIds}
@@ -609,12 +583,10 @@ export default function App() {
             user={user}
           />
         )}
-        {/* Footer */}
         <Footer />
       </main>
       </div>
 
-      {/* Modals */}
       <AuthModal
         isOpen={authModalOpen}
         onClose={() => {
@@ -704,7 +676,6 @@ export default function App() {
         isAdminMode={false}
       />
 
-      {/* Progressive Web App Install Banner & Service Worker Controller */}
       <PWAInstallPrompt />
     </div>
   );

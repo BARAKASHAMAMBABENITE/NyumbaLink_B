@@ -3,17 +3,13 @@ import {
   X,
   Plus,
   Trash2,
-  Sparkles,
-  MapPin,
-  Image as ImageIcon,
-  CheckCircle2,
   Building2,
-  DollarSign,
-  Loader2,
   Compass,
   Camera,
   UploadCloud,
-  ShieldAlert
+  ShieldAlert,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 import { Property, PropertyCategory, TransactionType, UserProfile, BukavuCommune } from '../types';
 import {
@@ -55,7 +51,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [customAvenue, setCustomAvenue] = useState('');
   const [isCustomAvenue, setIsCustomAvenue] = useState(false);
 
-  const [parcelDimensions, setParcelDimensions] = useState('20m x 25m (500 m²)');
+  const [parcelDimensions, setParcelDimensions] = useState('20m x 25m');
   const [address, setAddress] = useState('');
   
   const [ownerName, setOwnerName] = useState('');
@@ -63,7 +59,10 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [ownerPhone, setOwnerPhone] = useState('');
   const [ownerPhoneSecondary, setOwnerPhoneSecondary] = useState('');
   
-  const [visitFeeFc, setVisitFeeFc] = useState<number | ''>('');
+  const [visitAndCommissionFee, setVisitAndCommissionFee] = useState('');
+  const [feeCurrency, setFeeCurrency] = useState<'USD' | 'FC'>('USD');
+  const [terrace, setTerrace] = useState('');
+
   const [bedrooms, setBedrooms] = useState<number | ''>(3);
   const [livingRooms, setLivingRooms] = useState<number | ''>(1);
   const [kitchens, setKitchens] = useState<number | ''>(1);
@@ -74,8 +73,9 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [userCurrentLocation, setUserCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
 
-  const [surface, setSurface] = useState<number | ''>('');
+  const [surface, setSurface] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([
+    'Eau',
     'Électricité',
     'Clôturé',
     'Garage',
@@ -86,7 +86,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const [uploadingImage, setUploadingImage] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'validating' | 'uploading' | 'error' | 'success'>('idle');
   const [imageError, setImageError] = useState<string | null>(null);
   const [imageSuccessMsg, setImageSuccessMsg] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -121,22 +120,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
-  };
-
-  const formatDistanceAndTime = (distKm: number) => {
-    const distText = distKm < 1 ? `${Math.round(distKm * 1000)} m` : `${distKm.toFixed(1)} km`;
-    
-    const carMinutesTotal = Math.max(2, Math.round((distKm / 25) * 60));
-    const carTimeText = carMinutesTotal >= 60 
-      ? `${Math.floor(carMinutesTotal / 60)}h ${carMinutesTotal % 60 > 0 ? `${carMinutesTotal % 60} min` : ''}` 
-      : `${carMinutesTotal} min`;
-
-    const walkMinutesTotal = Math.max(3, Math.round((distKm / 4.5) * 60));
-    const walkTimeText = walkMinutesTotal >= 60 
-      ? `${Math.floor(walkMinutesTotal / 60)}h ${walkMinutesTotal % 60 > 0 ? `${walkMinutesTotal % 60} min` : ''}` 
-      : `${walkMinutesTotal} min`;
-
-    return `Distance : ${distText} | 🚗 ${carTimeText} (véhicule) | 🚶 ${walkTimeText} (à pied)`;
   };
 
   const updateFullAddress = (neigh: string, comm: string, av: string) => {
@@ -200,7 +183,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
 
   const handleCustomNeighborhoodChange = (val: string) => {
     if (!validateTextFormat(val)) {
-      setImageError("Format invalide : La saisie ne doit pas contenir de chiffres, noms d'animaux, de pays, de continents ou de domaines de travail.");
+      setImageError("Refusé");
       return;
     }
     setImageError(null);
@@ -222,7 +205,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
 
   const handleCustomAvenueChange = (val: string) => {
     if (!validateTextFormat(val)) {
-      setImageError("Format invalide : L'avenue ne doit pas contenir de chiffres, noms d'animaux, de pays, de continents ou de domaines de travail.");
+      setImageError("Refusé");
       return;
     }
     setImageError(null);
@@ -231,47 +214,17 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     updateFullAddress(isCustomNeighborhood ? customNeighborhood : neighborhood, commune, val);
   };
 
-  const handleMapCoordinatesPick = (lat: number, lng: number) => {
-    setLatitude(lat);
-    setLongitude(lng);
-    updateDistance(lat, lng);
-  };
-
-  // FILTRE STRICT LOCAL : Empêche les personnes, animaux, voitures ou composants électroniques
-  const checkImageIsRealEstateStrict = (file: File): Promise<boolean> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const img = new Image();
-        img.onload = () => {
-          // Analyse basique des dimensions et des mots-clés du nom du fichier ou de l'objet
-          const name = file.name.toLowerCase();
-          const forbiddenKeywords = [
-            'personne', 'homme', 'femme', 'enfant', 'visage', 'portrait', 'selfie', 'person', 'people', 'man', 'woman',
-            'voiture', 'auto', 'vehicule', 'car', 'moto', 'bike', 'phone', 'telephone', 'pc', 'ordinateur', 'electronic',
-            'chien', 'chat', 'animal', 'dog', 'cat', 'bird', 'oiseau'
-          ];
-
-          for (const word of forbiddenKeywords) {
-            if (name.includes(word)) {
-              resolve(false);
-              return;
-            }
-          }
-
-          // Analyse via le service externe s'il existe, mais avec vérification de secours
-          validatePropertyImageWithAI(file).then((aiValidation) => {
-            // Si le nom ou une heuristique détecte un humain / vêtement de type gilet de chantier sur un portrait serré, on bloque
-            resolve(aiValidation.isRealEstate);
-          }).catch(() => {
-            resolve(true);
-          });
-        };
-        img.onerror = () => resolve(false);
-        img.src = event.target?.result as string;
-      };
-      reader.readAsDataURL(file);
-    });
+  // VÉRIFICATION STRICTE UNIQUE VIA L'IA GEMINI (Sans filtre de nom permissif)
+  const checkImageIsRealEstateStrict = async (file: File): Promise<boolean> => {
+    try {
+      const aiValidation = await validatePropertyImageWithAI(file);
+      // On retourne strictement le résultat de l'IA (true ou false)
+      return Boolean(aiValidation && aiValidation.isRealEstate);
+    } catch (err) {
+      console.warn('Erreur lors de la validation IA de l’image:', err);
+      // En cas d'erreur technique, on refuse par sécurité
+      return false;
+    }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,7 +234,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     setUploadingImage(true);
     setImageError(null);
     setImageSuccessMsg(null);
-    setUploadStatus('validating');
 
     let acceptedCount = 0;
     let rejectedCount = 0;
@@ -289,19 +241,13 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        setUploadStatus('validating');
-        
-        // Vérification stricte
         const isRealEstate = await checkImageIsRealEstateStrict(file);
 
         if (!isRealEstate) {
           rejectedCount++;
-          setImageError("Image refusée : Seules les images de parcelles, maisons, bâtiments et biens immobiliers sont acceptées. Les personnes, animaux, véhicules ou composants électroniques sont interdits.");
-          setUploadStatus('error');
           continue;
         }
 
-        setUploadStatus('uploading');
         const cloudinaryRes = await uploadImageToCloudinary(file);
         if (cloudinaryRes?.url) {
           setImages((prev) => [...prev, cloudinaryRes.url]);
@@ -319,23 +265,22 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
       } catch (err) {
         console.error('Erreur lors du traitement de l’image:', err);
         rejectedCount++;
-        setImageError("Image refusée : Impossible de valider cette image en tant que bien immobilier.");
-        setUploadStatus('error');
       }
     }
 
     setUploadingImage(false);
+
     if (acceptedCount > 0 && rejectedCount === 0) {
-      setImageSuccessMsg(`${acceptedCount} photo(s) immobilière(s) acceptée(s) avec succès !`);
-      setUploadStatus('success');
+      setImageSuccessMsg("Accepté");
     } else if (rejectedCount > 0) {
-      setUploadStatus('error');
+      setImageError("Refusé");
     }
 
     e.target.value = '';
   };
 
   const availableFeatures = [
+    'Eau',
     'Électricité',
     'Clôturé',
     'Garage',
@@ -361,26 +306,31 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
 
     const activeNeighborhood = isCustomNeighborhood ? customNeighborhood : neighborhood;
     if (!activeNeighborhood.trim() || !validateTextFormat(activeNeighborhood)) {
-      setImageError("Veuillez indiquer un quartier valide (sans chiffres ni mots interdits).");
-      setUploadStatus('error');
+      setImageError("Refusé");
       return;
     }
 
     if (images.length === 0) {
-      setImageError("Image refusée : Veuillez ajouter au moins une photo valide d'un bien immobilier.");
-      setUploadStatus('error');
+      setImageError("Refusé");
       return;
     }
 
     if (!ownerPhone.trim() || !ownerName.trim()) {
-      setImageError("Veuillez renseigner un nom et un numéro de téléphone professionnels.");
-      setUploadStatus('error');
+      setImageError("Refusé");
       return;
     }
 
     setSubmitting(true);
     try {
       const formattedPhones = ownerPhone.trim() + (ownerPhoneSecondary.trim() ? ` / ${ownerPhoneSecondary.trim()}` : '');
+
+      let finalFeatures = [...features];
+      if (terrace.trim()) {
+        finalFeatures.push(`Terrasse: ${terrace.trim()}`);
+      }
+      if (visitAndCommissionFee.trim()) {
+        finalFeatures.push(`Frais visite/commission: ${visitAndCommissionFee.trim()} ${feeCurrency}`);
+      }
 
       await onAddProperty({
         title,
@@ -394,12 +344,12 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
         neighborhood: activeNeighborhood,
         latitude,
         longitude,
-        surface: category === 'parcelle' ? (surface ? Number(surface) : 500) : undefined,
+        surface: surface.trim() || (category === 'parcelle' ? parcelDimensions : undefined),
         bedrooms: category === 'parcelle' ? undefined : (bedrooms !== '' ? Number(bedrooms) : undefined),
         livingRooms: category === 'parcelle' ? undefined : (livingRooms !== '' ? Number(livingRooms) : undefined),
         kitchens: category === 'parcelle' ? undefined : (kitchens !== '' ? Number(kitchens) : undefined),
         bathrooms: category === 'parcelle' ? undefined : (bathrooms !== '' ? Number(bathrooms) : undefined),
-        features: category === 'parcelle' ? [] : features,
+        features: finalFeatures,
         images,
         ownerId: user?.uid || 'agent-001',
         ownerName: ownerName.trim(),
@@ -493,6 +443,44 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                 placeholder="Ex: +243 998 765 432"
                 value={ownerPhoneSecondary}
                 onChange={(e) => setOwnerPhoneSecondary(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FF385C] outline-hidden"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-slate-50 dark:bg-[#121212] rounded-xl border border-slate-200 dark:border-[#2e2e2e]">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
+                Frais de visite & Commission
+              </label>
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  placeholder="Ex: 10 / 50 ou 5000"
+                  value={visitAndCommissionFee}
+                  onChange={(e) => setVisitAndCommissionFee(e.target.value)}
+                  className="flex-1 px-3 py-2.5 bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FF385C] outline-hidden"
+                />
+                <select
+                  value={feeCurrency}
+                  onChange={(e) => setFeeCurrency(e.target.value as 'USD' | 'FC')}
+                  className="px-3 py-2.5 bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-hidden"
+                >
+                  <option value="USD">$ USD</option>
+                  <option value="FC">FC</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
+                Terrasse <span className="text-[10px] text-slate-400 font-normal">(Ex: Grande terrasse, Vue lac...)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Oui, avec vue panoramique"
+                value={terrace}
+                onChange={(e) => setTerrace(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-white dark:bg-[#181818] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-white focus:ring-2 focus:ring-[#FF385C] outline-hidden"
               />
             </div>
@@ -638,14 +626,14 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
             {category === 'parcelle' ? (
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
-                  Dimensions de la parcelle
+                  Surface / Mesure (Saisie libre) *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: 20m x 25m (500 m²)"
-                  value={parcelDimensions}
-                  onChange={(e) => setParcelDimensions(e.target.value)}
+                  placeholder="Ex: 20m x 25m ou 500m² ou 2 parcelles"
+                  value={surface}
+                  onChange={(e) => setSurface(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white outline-hidden"
                 />
               </div>
@@ -707,160 +695,110 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
-                  Frais de visite (FC)
+                  Surface / Mesure (Saisie libre)
                 </label>
                 <input
-                  type="number"
-                  placeholder="Ex: 5000"
-                  value={visitFeeFc}
-                  onChange={(e) => setVisitFeeFc(e.target.value ? Number(e.target.value) : '')}
+                  type="text"
+                  placeholder="Ex: 150 m² ou Grand espace"
+                  value={surface}
+                  onChange={(e) => setSurface(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white outline-hidden"
                 />
               </div>
             </div>
           )}
 
-          <div className="space-y-2">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center">
-                <MapPin className="w-3.5 h-3.5 mr-1 text-[#FF385C]" />
-                Localisation précise sur la Carte interactive
-              </label>
-              {distanceKm !== null && (
-                <div className="text-xs font-bold text-[#FF385C] bg-[#FF385C]/10 px-2.5 py-1 rounded-lg">
-                  {formatDistanceAndTime(distanceKm)}
-                </div>
-              )}
-            </div>
-            
-            <PropertyMap
-              properties={[]}
-              pickerMode={true}
-              onPickCoordinates={handleMapCoordinatesPick}
-              height="220px"
-              centerCoordinates={[latitude, longitude]}
-            />
-          </div>
-
+          {/* Sélection des photos avec validation IA stricte */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
-              Description Détaillée
+              Photos du bien immobilier * (Seules les images immobilières et documents/plans sont acceptés)
             </label>
-            <textarea
-              rows={3}
-              placeholder="Précisez les commodités, l'accès routier et les détails du bien..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-hidden"
-            />
-          </div>
-
-          {category !== 'parcelle' && (
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-2">
-                Équipements & Prestations
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {availableFeatures.map((feat) => {
-                  const isSelected = features.includes(feat);
-                  return (
-                    <button
-                      key={feat}
-                      type="button"
-                      onClick={() => handleToggleFeature(feat)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold border transition text-left flex items-center justify-between cursor-pointer ${
-                        isSelected
-                          ? 'bg-[#FF385C]/10 border-[#FF385C] text-[#FF385C]'
-                          : 'bg-slate-50 dark:bg-[#121212] border-slate-200 dark:border-[#2e2e2e] text-slate-700 dark:text-slate-300'
-                      }`}
-                    >
-                      <span>{feat}</span>
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-[#FF385C]" />}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Section Photos avec blocage strict */}
-          <div className="space-y-3">
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-              Photos du Bien (Seules les parcelles, maisons et bâtiments sont acceptés) *
-            </label>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="flex flex-wrap gap-3 mb-2">
               {images.map((imgUrl, idx) => (
-                <div key={idx} className="relative aspect-video rounded-xl overflow-hidden border border-slate-200 dark:border-[#2e2e2e] group bg-slate-100">
-                  <img src={imgUrl} alt={`Aperçu ${idx}`} className="w-full h-full object-cover" />
+                <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-[#2e2e2e] shadow-xs group">
+                  <img src={imgUrl} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-1.5 right-1.5 bg-rose-600 hover:bg-rose-700 text-white p-1.5 rounded-lg shadow-md transition cursor-pointer"
-                    title="Supprimer la photo"
+                    className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition cursor-pointer"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 </div>
               ))}
 
-              <div
-                onClick={() => galleryInputRef.current?.click()}
-                className="aspect-video rounded-xl border-2 border-dashed border-slate-300 dark:border-[#333] hover:border-[#FF385C] flex flex-col items-center justify-center cursor-pointer bg-slate-50 dark:bg-[#121212] transition group"
-              >
-                <UploadCloud className="w-6 h-6 text-slate-400 group-hover:text-[#FF385C] mb-1" />
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-400 text-center px-1">
-                  Ajouter des photos
-                </span>
-              </div>
+              {/* Bouton Caméra direct */}
+              <label className="w-20 h-20 rounded-xl border-2 border-dashed border-[#FF385C]/60 flex flex-col items-center justify-center text-[#FF385C] hover:bg-[#FF385C]/10 transition cursor-pointer bg-slate-50 dark:bg-[#121212]" title="Prendre une photo">
+                <Camera className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-bold">Caméra</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  ref={cameraInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </label>
+
+              {/* Bouton Galerie */}
+              <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 dark:border-[#333] flex flex-col items-center justify-center text-slate-400 hover:text-[#FF385C] hover:border-[#FF385C] transition cursor-pointer bg-slate-50 dark:bg-[#121212]" title="Choisir dans la galerie">
+                <UploadCloud className="w-6 h-6 mb-1" />
+                <span className="text-[10px] font-bold">Galerie</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  ref={galleryInputRef}
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </label>
             </div>
-
-            <input
-              type="file"
-              ref={galleryInputRef}
-              onChange={handleFileSelect}
-              multiple
-              accept="image/*"
-              className="hidden"
-            />
-
-            {uploadingImage && (
-              <div className="flex items-center space-x-2 text-xs font-semibold text-[#FF385C] animate-pulse">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Analyse de l'image (vérification immobilière)...</span>
-              </div>
-            )}
-
-            {imageError && (
-              <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 rounded-xl text-xs text-rose-700 dark:text-rose-300 font-medium flex items-center space-x-2">
-                <ShieldAlert className="w-4 h-4 shrink-0" />
-                <span>{imageError}</span>
-              </div>
-            )}
-
-            {imageSuccessMsg && (
-              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 font-medium flex items-center space-x-2">
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>{imageSuccessMsg}</span>
-              </div>
-            )}
           </div>
 
-          <div className="pt-4 border-t border-[#ebebeb] dark:border-[#2e2e2e] flex items-center justify-end space-x-3">
+          {uploadingImage && (
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center space-x-2">
+              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+              <span>Analyse de l'image par l'IA et téléchargement en cours...</span>
+            </div>
+          )}
+
+          {imageError && (
+            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center space-x-2">
+              <ShieldAlert className="w-4 h-4 shrink-0 text-rose-600" />
+              <span>Image refusée : Les photos de personnes, animaux ou objets non immobiliers ne sont pas autorisées.</span>
+            </div>
+          )}
+
+          {imageSuccessMsg && (
+            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <span>Image validée et acceptée avec succès !</span>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t border-[#ebebeb] dark:border-[#2e2e2e]">
             <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-100 dark:bg-[#222] text-slate-700 dark:text-slate-300 hover:bg-slate-200 transition cursor-pointer"
-          >
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+            >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting || uploadingImage}
-              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-[#FF385C] hover:bg-[#E00B41] text-white transition shadow-md disabled:opacity-50 flex items-center space-x-2 cursor-pointer"
+              className="px-6 py-2.5 bg-[#FF385C] hover:opacity-95 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center space-x-2"
             >
-              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-              <span>{submitting ? 'Publication en cours...' : 'Publier le bien'}</span>
+              {submitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Publication en cours...</span>
+                </>
+              ) : (
+                <span>Publier l'annonce</span>
+              )}
             </button>
           </div>
         </form>
