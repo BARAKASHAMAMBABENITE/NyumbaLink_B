@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Property, PropertyCategory, TransactionType, UserProfile, BukavuCommune, PropertyStatus } from '../types';
 import { BUKAVU_COMMUNES_WITH_NEIGHBORHOODS, BUKAVU_NEIGHBORHOOD_COORDINATES, BUKAVU_COMMUNE_CENTERS } from '../data/initialProperties';
-import { PropertyMap } from './PropertyMap';
+import PropertyMap from './PropertyMap';
 import { uploadImageToCloudinary } from '../services/cloudinaryService';
 import { validatePropertyImageWithAI } from '../services/imageValidationService';
 
@@ -41,67 +41,100 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
 }) => {
   if (!isOpen || !property) return null;
 
-  const [title, setTitle] = useState(property.title);
-  const [description, setDescription] = useState(property.description);
-  const [price, setPrice] = useState<number | ''>(property.price);
+  const [title, setTitle] = useState(property.title || '');
+  const [description, setDescription] = useState(property.description || '');
+  const [price, setPrice] = useState<number | ''>(property.price ?? '');
   const [pricePeriod, setPricePeriod] = useState<'total' | 'mois'>(property.pricePeriod || 'mois');
-  const [type, setType] = useState(property.type);
-  const [status, setStatus] = useState(property.status || 'disponible');
-  const [category, setCategory] = useState(property.category);
+  const [type, setType] = useState<TransactionType>(property.type || 'location');
+  const [status, setStatus] = useState<PropertyStatus>(property.status || 'disponible');
+  const [category, setCategory] = useState<PropertyCategory>(property.category || 'maison');
   const [commune, setCommune] = useState<BukavuCommune>(property.commune || 'Ibanda');
-  const [neighborhood, setNeighborhood] = useState(property.neighborhood || BUKAVU_COMMUNES_WITH_NEIGHBORHOODS['Ibanda'][0]);
-  const [parcelDimensions, setParcelDimensions] = useState(
-    property.surface ? `${property.surface} m²` : ''
-  );
-  const [address, setAddress] = useState(property.address);
-  const [latitude, setLatitude] = useState(property.latitude || -2.5080);
-  const [longitude, setLongitude] = useState(property.longitude || 28.8600);
-  const [surface, setSurface] = useState<number | ''>(property.surface || '');
-  const [livingRooms, setLivingRooms] = useState<number | ''>(property.livingRooms ?? '');
-  const [bedrooms, setBedrooms] = useState<number | ''>(property.bedrooms ?? '');
-  const [bathrooms, setBathrooms] = useState<number | ''>(property.bathrooms ?? '');
-  const [kitchens, setKitchens] = useState<number | ''>(property.kitchens ?? '');
-  const [toilets, setToilets] = useState<number | ''>(property.toilets ?? '');
-  const [terrace, setTerrace] = useState<number | ''>(property.terrace ?? '');
   
-  // Nouveaux champs : Frais de commission et de visite (texte libre ou prix)
-  const [commissionFee, setCommissionFee] = useState<string>(property.commissionFee || '');
-  const [visitFee, setVisitFee] = useState<string>(property.visitFee || '');
+  const [neighborhood, setNeighborhood] = useState(property.neighborhood || BUKAVU_COMMUNES_WITH_NEIGHBORHOODS['Ibanda'][0]);
+  const [customNeighborhood, setCustomNeighborhood] = useState('');
+  const [isCustomNeighborhood, setIsCustomNeighborhood] = useState(false);
 
-  const [features, setFeatures] = useState<string[]>(property.features || []);
+  const [avenue, setAvenue] = useState('');
+  const [customAvenue, setCustomAvenue] = useState('');
+  const [isCustomAvenue, setIsCustomAvenue] = useState(false);
+
+  const [parcelDimensions, setParcelDimensions] = useState(property.surface ? String(property.surface) : '20m x 25m');
+  const [address, setAddress] = useState(property.address || '');
+
+  const [ownerName, setOwnerName] = useState(property.ownerName || '');
+  const [ownerEmail, setOwnerEmail] = useState(property.ownerEmail || '');
+  const [ownerPhone, setOwnerPhone] = useState(property.ownerPhone || '');
+  const [ownerPhoneSecondary, setOwnerPhoneSecondary] = useState('');
+
+  const [visitAndCommissionFee, setVisitAndCommissionFee] = useState(property.commissionFee || '');
+  const [feeCurrency, setFeeCurrency] = useState<'USD' | 'FC'>('USD');
+  const [terrace, setTerrace] = useState(property.terrace !== undefined ? String(property.terrace) : '');
+
+  const [bedrooms, setBedrooms] = useState<number | ''>(property.bedrooms ?? 3);
+  const [livingRooms, setLivingRooms] = useState<number | ''>(property.livingRooms ?? 1);
+  const [kitchens, setKitchens] = useState<number | ''>(property.kitchens ?? 1);
+  const [bathrooms, setBathrooms] = useState<number | ''>(property.bathrooms ?? 2);
+  const [toilets, setToilets] = useState<number | ''>(property.toilets ?? '');
+
+  const [latitude, setLatitude] = useState<number>(property.latitude || -2.5150);
+  const [longitude, setLongitude] = useState<number>(property.longitude || 28.8680);
+  const [userCurrentLocation, setUserCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [distanceKm, setDistanceKm] = useState<number | null>(null);
+  
+  const [surface, setSurface] = useState<any>(property.surface !== undefined && property.surface !== null ? property.surface : '');
+  
+  const [features, setFeatures] = useState<string[]>(property.features || [
+    'Eau',
+    'Électricité',
+    'Clôturé',
+    'Garage',
+    'Jardin'
+  ]);
+
   const [images, setImages] = useState<string[]>(property.images || []);
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (property) {
-      setTitle(property.title);
-      setDescription(property.description);
-      setPrice(property.price);
+      setTitle(property.title || '');
+      setDescription(property.description || '');
+      setPrice(property.price ?? '');
       setPricePeriod(property.pricePeriod || 'mois');
-      setType(property.type);
+      setType(property.type || 'location');
       setStatus(property.status || 'disponible');
-      setCategory(property.category);
+      setCategory(property.category || 'maison');
       const propertyCommune = property.commune || 'Ibanda';
       setCommune(propertyCommune);
       const validQuartiers = BUKAVU_COMMUNES_WITH_NEIGHBORHOODS[propertyCommune] || [];
       const validQuartier = validQuartiers.includes(property.neighborhood) ? property.neighborhood : validQuartiers[0] || 'Nguba';
       setNeighborhood(validQuartier);
-      setParcelDimensions(property.surface ? `${property.surface} m²` : '');
-      setAddress(property.address);
-      setLatitude(property.latitude || -2.5080);
-      setLongitude(property.longitude || 28.8600);
-      setSurface(property.surface || '');
-      setLivingRooms(property.livingRooms ?? '');
-      setBedrooms(property.bedrooms ?? '');
-      setBathrooms(property.bathrooms ?? '');
-      setKitchens(property.kitchens ?? '');
+      setAddress(property.address || '');
+      setLatitude(property.latitude || -2.5150);
+      setLongitude(property.longitude || 28.8680);
+      setSurface(property.surface !== undefined && property.surface !== null ? property.surface : '');
+      setLivingRooms(property.livingRooms ?? 1);
+      setBedrooms(property.bedrooms ?? 3);
+      setBathrooms(property.bathrooms ?? 2);
+      setKitchens(property.kitchens ?? 1);
       setToilets(property.toilets ?? '');
-      setTerrace(property.terrace ?? '');
-      setCommissionFee(property.commissionFee || '');
-      setVisitFee(property.visitFee || '');
-      setFeatures(property.features || []);
+      setTerrace(property.terrace !== undefined ? String(property.terrace) : '');
+      setVisitAndCommissionFee(property.commissionFee || '');
+      setOwnerName(property.ownerName || '');
+      setOwnerEmail(property.ownerEmail || '');
+      setOwnerPhone(property.ownerPhone || '');
+      setFeatures(property.features || ['Eau', 'Électricité', 'Clôturé', 'Garage', 'Jardin']);
       setImages(property.images || []);
     }
   }, [property]);
+
+  // Ajustement automatique de la hauteur du textarea pour éliminer le scroll interne
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [description]);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -118,16 +151,7 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
     setCommune(newCommune);
     const firstQuartier = BUKAVU_COMMUNES_WITH_NEIGHBORHOODS[newCommune]?.[0] || 'Nguba';
     setNeighborhood(firstQuartier);
-    setAddress(`Quartier ${firstQuartier}, Commune de ${newCommune}, Bukavu`);
-    const coords = BUKAVU_NEIGHBORHOOD_COORDINATES[firstQuartier] || BUKAVU_COMMUNE_CENTERS[newCommune] || [-2.5080, 28.8600];
-    setLatitude(coords[0]);
-    setLongitude(coords[1]);
-  };
-
-  const handleNeighborhoodChange = (newNeighborhood: string) => {
-    setNeighborhood(newNeighborhood);
-    setAddress(`Quartier ${newNeighborhood}, Commune de ${commune}, Bukavu`);
-    const coords = BUKAVU_NEIGHBORHOOD_COORDINATES[newNeighborhood] || BUKAVU_COMMUNE_CENTERS[commune] || [-2.5080, 28.8600];
+    const coords = BUKAVU_NEIGHBORHOOD_COORDINATES[firstQuartier] || BUKAVU_COMMUNE_CENTERS[newCommune] || [-2.5150, 28.8680];
     setLatitude(coords[0]);
     setLongitude(coords[1]);
   };
@@ -194,14 +218,14 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
   };
 
   const availableFeatures = [
-    'Eau (Regideso / Forage 24h/24)',
-    'Vue Panoramique Lac Kivu',
-    'Eau 24h/24 (Regideso + Tank)',
-    'Électricité (SNEL + Panneaux/Groupe)',
-    'Clôturé & Sécurisé',
-    'Garage / Parking',
+    'Eau',
+    'Électricité',
+    'Clôturé',
+    'Garage',
     'Jardin',
-    'Accès Véhicule Facile'
+    'Vue Panoramique Lac Kivu',
+    'Citerne / Forage',
+    'Sécurisé 24h/24'
   ];
 
   const handleToggleFeature = (feat: string) => {
@@ -212,10 +236,13 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!price) return;
+    if (price === '') return;
 
     setSubmitting(true);
     try {
+      const finalNeighborhood = isCustomNeighborhood ? customNeighborhood : neighborhood;
+      const finalAddress = address || `Quartier ${finalNeighborhood}, Commune de ${commune}, Bukavu`;
+
       await onUpdateProperty(property.id, {
         title,
         description,
@@ -225,21 +252,23 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         status,
         category,
         commune,
-        address: address || `Quartier ${neighborhood}, Commune de ${commune}, Bukavu`,
-        neighborhood,
+        neighborhood: finalNeighborhood,
+        address: finalAddress,
         latitude,
         longitude,
-        surface: category === 'parcelle' ? (surface ? Number(surface) : undefined) : undefined,
+        surface: category === 'parcelle' ? undefined : (surface !== '' ? surface : undefined),
         livingRooms: category === 'parcelle' ? undefined : (livingRooms !== '' ? Number(livingRooms) : undefined),
         bedrooms: category === 'parcelle' ? undefined : (bedrooms !== '' ? Number(bedrooms) : undefined),
         bathrooms: category === 'parcelle' ? undefined : (bathrooms !== '' ? Number(bathrooms) : undefined),
         kitchens: category === 'parcelle' ? undefined : (kitchens !== '' ? Number(kitchens) : undefined),
         toilets: category === 'parcelle' ? undefined : (toilets !== '' ? Number(toilets) : undefined),
-        terrace: category === 'parcelle' ? undefined : (terrace !== '' ? Number(terrace) : undefined),
-        commissionFee,
-        visitFee,
-        features: category === 'parcelle' ? [] : features,
-        images: images.length > 0 ? images : property.images
+        terrace: terrace ? Number(terrace) : undefined,
+        commissionFee: visitAndCommissionFee,
+        features,
+        images: images.length > 0 ? images : property.images,
+        ownerName,
+        ownerEmail,
+        ownerPhone
       });
 
       onClose();
@@ -256,7 +285,7 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
         <div className="flex items-center justify-between pb-4 border-b border-slate-200 dark:border-[#2e2e2e] mb-5">
           <div>
             <h2 className="text-lg font-extrabold text-slate-900 dark:text-white">Modifier le bien</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Mettez à jour les informations du bien</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Mettez à jour les informations du bien immobilier</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 hover:text-white transition cursor-pointer">
             <X className="w-5 h-5" />
@@ -272,7 +301,21 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex: Belle villa moderne avec vue sur le lac"
               className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-white outline-hidden"
+            />
+          </div>
+
+          {/* Description sans barre de défilement interne et avec hauteur fluide */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Description détaillée</label>
+            <textarea
+              ref={textareaRef}
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Décrivez les atouts du bien..."
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-white outline-hidden resize-none overflow-hidden"
             />
           </div>
 
@@ -297,9 +340,9 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 onChange={(e) => setStatus(e.target.value as PropertyStatus)}
                 className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7]"
               >
-                <option value="disponible"> Disponible</option>
-                <option value="loue"> Loué</option>
-                <option value="vendu"> Vendu</option>
+                <option value="disponible">Disponible</option>
+                <option value="loue">Loué</option>
+                <option value="vendu">Vendu</option>
               </select>
             </div>
 
@@ -335,7 +378,7 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Quartier</label>
               <select
                 value={neighborhood}
-                onChange={(e) => handleNeighborhoodChange(e.target.value)}
+                onChange={(e) => setNeighborhood(e.target.value)}
                 className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7]"
               >
                 {currentNeighborhoods.map((q) => (
@@ -345,7 +388,19 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
             </div>
           </div>
 
-          {/* Prix & Pièces (Salon, Cuisine, SDB, Toilette, Terrasse) */}
+          {/* Adresse exacte */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Adresse précise / Référence</label>
+            <input
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Ex: Av. de la Mission, près de l'ISP"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-white outline-hidden"
+            />
+          </div>
+
+          {/* Prix & Périodicité */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Prix ($ USD)</label>
@@ -354,79 +409,118 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                 required
                 value={price}
                 onChange={(e) => setPrice(e.target.value ? Number(e.target.value) : '')}
+                placeholder="Ex: 300"
                 className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-sm font-bold text-slate-900 dark:text-white"
               />
             </div>
-
-            {category === 'parcelle' ? (
+            {type === 'location' && category !== 'parcelle' && (
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Dimensions / Surface (m²)</label>
-                <input
-                  type="text"
-                  value={parcelDimensions}
-                  onChange={(e) => {
-                    setParcelDimensions(e.target.value);
-                    const match = e.target.value.match(/(\d+)/);
-                    if (match) setSurface(Number(match[1]));
-                  }}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
-                />
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Salons</label>
-                  <input type="number" placeholder="Ex: 1" value={livingRooms} onChange={(e) => setLivingRooms(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Chambres</label>
-                  <input type="number" placeholder="Ex: 2" value={bedrooms} onChange={(e) => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Cuisines</label>
-                  <input type="number" placeholder="Ex: 1" value={kitchens} onChange={(e) => setKitchens(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Terrasses</label>
-                  <input type="number" placeholder="Ex: 1" value={terrace} onChange={(e) => setTerrace(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">S. Bains</label>
-                  <input type="number" placeholder="Ex: 1" value={bathrooms} onChange={(e) => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Toilettes</label>
-                  <input type="number" placeholder="Ex: 1" value={toilets} onChange={(e) => setToilets(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-                </div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Périodicité</label>
+                <select
+                  value={pricePeriod}
+                  onChange={(e) => setPricePeriod(e.target.value as 'total' | 'mois')}
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-800 dark:text-[#f7f7f7]"
+                >
+                  <option value="mois">Par mois</option>
+                  <option value="total">Total / Autre</option>
+                </select>
               </div>
             )}
           </div>
 
-          {/* Nouveaux champs : Frais de commission et de visite (Prix en $, FC ou texte libre ex: "Demi du mois") */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+          {/* Pièces et Caractéristiques (Masqué pour la catégorie parcelle) */}
+          {category !== 'parcelle' && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Salons</label>
+                <input type="number" value={livingRooms} onChange={(e) => setLivingRooms(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Chambres</label>
+                <input type="number" value={bedrooms} onChange={(e) => setBedrooms(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Cuisines</label>
+                <input type="number" value={kitchens} onChange={(e) => setKitchens(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-200 uppercase mb-1">Salles de Bains</label>
+                <input type="number" value={bathrooms} onChange={(e) => setBathrooms(e.target.value ? Number(e.target.value) : '')} className="w-full p-2 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
+              </div>
+            </div>
+          )}
+
+          {/* Frais et propriétaire */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Frais de Commission</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Frais de commission / visite</label>
               <input
                 type="text"
+                value={visitAndCommissionFee}
+                onChange={(e) => setVisitAndCommissionFee(e.target.value)}
                 placeholder="Ex: 50$ ou Demi du mois"
-                value={commissionFee}
-                onChange={(e) => setCommissionFee(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Frais de Visite</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">Téléphone Propriétaire / Agent</label>
               <input
                 type="text"
-                placeholder="Ex: 5$ ou 10000 FC"
-                value={visitFee}
-                onChange={(e) => setVisitFee(e.target.value)}
+                value={ownerPhone}
+                onChange={(e) => setOwnerPhone(e.target.value)}
+                placeholder="Ex: +243..."
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
               />
             </div>
           </div>
 
-          {/* Équipements & Prestations (avec Eau incluse) */}
+          {/* Gestion des Photos */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-2">Photos du bien</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+              {images.map((imgUrl, idx) => (
+                <div key={idx} className="relative group rounded-xl overflow-hidden aspect-video bg-slate-100 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e]">
+                  <img src={imgUrl} alt={`Aperçu ${idx}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveImage(idx)}
+                    className="absolute top-1.5 right-1.5 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition shadow-md"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex flex-col items-center justify-center aspect-video rounded-xl border-2 border-dashed border-slate-300 dark:border-[#2e2e2e] hover:border-[#FF385C] dark:hover:border-[#FF385C] bg-slate-50 dark:bg-[#121212] text-slate-500 hover:text-[#FF385C] transition cursor-pointer"
+              >
+                <UploadCloud className="w-5 h-5 mb-1" />
+                <span className="text-[11px] font-semibold">Ajouter des photos</span>
+              </button>
+            </div>
+
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {uploadingImage && (
+              <div className="flex items-center space-x-2 text-xs text-[#FF385C] font-medium mt-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{uploadStatus === 'validating' ? "Validation de l'image par l'IA..." : "Téléchargement en cours..."}</span>
+              </div>
+            )}
+            {imageError && <p className="text-xs text-red-500 mt-1">{imageError}</p>}
+            {imageSuccessMsg && <p className="text-xs text-emerald-500 mt-1">{imageSuccessMsg}</p>}
+          </div>
+
+          {/* Équipements & Prestations */}
           {category !== 'parcelle' && (
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-2">Équipements & Prestations</label>
@@ -438,7 +532,7 @@ export const EditPropertyModal: React.FC<EditPropertyModalProps> = ({
                       key={feat}
                       type="button"
                       onClick={() => handleToggleFeature(feat)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold text-left border transition flex items-center space-x-2 ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold text-left border transition flex items-center space-x-2 cursor-pointer ${
                         checked ? 'bg-[#FF385C]/15 text-[#FF385C] border-[#FF385C]' : 'bg-slate-50 dark:bg-[#121212] text-slate-600 dark:text-[#f7f7f7] border-slate-200 dark:border-[#2e2e2e]'
                       }`}
                     >

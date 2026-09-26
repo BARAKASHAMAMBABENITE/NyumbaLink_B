@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Heart,
   Bed,
   Bath,
   Maximize2,
   MapPin,
-  Eye,
   Sparkles,
   ArrowUpRight,
   CheckCircle2,
@@ -14,14 +13,11 @@ import {
   Building2,
   AlertOctagon,
   Lock,
-  Users,
   MessageSquare,
   Send,
   X
 } from 'lucide-react';
 import { Property, UserProfile } from '../types';
-import { collection, addDoc, query, where, Timestamp, onSnapshot, getDocs } from 'firebase/firestore';
-import { db } from '../config/firebase';
 
 interface PropertyCardProps {
   property: Property;
@@ -33,17 +29,6 @@ interface PropertyCardProps {
   onSelectNeighborhood?: (neighborhood: string) => void;
   user?: UserProfile | null;
   onDeleteProperty?: (id: string) => void;
-}
-
-interface PropertyVisitor {
-  id?: string;
-  userId?: string;
-  visitorName: string;
-  visitorEmail: string;
-  visitorRole: string;
-  avatarUrl?: string;
-  deviceInfo: string;
-  timestamp: any;
 }
 
 export const PropertyCard: React.FC<PropertyCardProps> = ({
@@ -59,10 +44,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 }) => {
   const isOccupied = property.status === 'loue' || property.status === 'vendu';
 
-  const [visitorsModalOpen, setVisitorsModalOpen] = useState(false);
-  const [propertyVisitors, setPropertyVisitors] = useState<PropertyVisitor[]>([]);
-  const [visitorsCount, setVisitorsCount] = useState<number>(0);
-
   const [contactModalOpen, setContactModalOpen] = useState(false);
   const [activeRecipient, setActiveRecipient] = useState<{ name: string; email?: string; phone?: string } | null>(null);
   
@@ -75,107 +56,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
 
-  const isOwner = Boolean(
-    user && (
-      (property.ownerId && property.ownerId === user.uid) ||
-      (property.ownerEmail && user.email && property.ownerEmail.toLowerCase() === user.email.toLowerCase())
-    )
-  );
-  const canManageProperty = user?.role === 'admin' || (user?.role === 'agent' && isOwner);
-
-  useEffect(() => {
-    if (!property?.id) return;
-
-    const currentUserId = user?.uid;
-    const currentUserEmail = user?.email ? user.email.trim().toLowerCase() : '';
-    const currentFullName = user?.fullname ? user.fullname.trim() : '';
-    const currentUserAvatar = (user as any)?.photoURL || (user as any)?.avatarUrl || (user as any)?.photo || '';
-
-    const registerVisitor = async () => {
-      if (canManageProperty) return;
-      if (!currentFullName || currentFullName.toLowerCase().includes('utilisateur nyumbalink') || !currentUserEmail) return;
-
-      try {
-        const visitorsRef = collection(db, 'property_visitors');
-        const qCheck = query(visitorsRef, where('propertyId', '==', property.id));
-        const querySnapshot = await getDocs(qCheck);
-
-        let alreadyExists = false;
-        querySnapshot.forEach((docSnap) => {
-          const data = docSnap.data();
-          const docUserId = data.userId;
-          const docEmail = data.visitorEmail ? data.visitorEmail.trim().toLowerCase() : '';
-
-          if (currentUserId && docUserId === currentUserId) alreadyExists = true;
-          if (currentUserEmail && docEmail === currentUserEmail) alreadyExists = true;
-        });
-
-        if (!alreadyExists) {
-          const visitData = {
-            propertyId: property.id,
-            userId: currentUserId || currentUserEmail,
-            visitorName: currentFullName,
-            visitorEmail: currentUserEmail,
-            visitorRole: user?.role || 'client',
-            avatarUrl: currentUserAvatar,
-            deviceInfo: navigator.userAgent.includes('Mobile') ? 'Mobile' : 'Ordinateur',
-            timestamp: Timestamp.now()
-          };
-          await addDoc(visitorsRef, visitData);
-        }
-      } catch (err) {
-        console.warn("Erreur lors de l’enregistrement du visiteur :", err);
-      }
-    };
-
-    if (user !== undefined) {
-      void registerVisitor();
-    }
-
-    const qLive = query(collection(db, 'property_visitors'), where('propertyId', '==', property.id));
-    const unsubscribe = onSnapshot(qLive, (querySnapshot) => {
-      const loadedVisitors: PropertyVisitor[] = [];
-      const uniqueKeys = new Set<string>();
-
-      querySnapshot.forEach((docSnap) => {
-        const data = docSnap.data();
-        const name = (data.visitorName || '').trim();
-        const email = (data.visitorEmail || '').trim();
-
-        if (
-          name === '' || 
-          email === '' || 
-          name.toLowerCase().includes('utilisateur nyumbalink') ||
-          email.toLowerCase() === 'non renseigné'
-        ) {
-          return;
-        }
-
-        const uKey = data.userId || email || docSnap.id;
-        if (!uniqueKeys.has(uKey)) {
-          uniqueKeys.add(uKey);
-          loadedVisitors.push({
-            id: docSnap.id,
-            userId: data.userId,
-            visitorName: name,
-            visitorEmail: email,
-            visitorRole: data.visitorRole || 'client',
-            avatarUrl: data.avatarUrl || '',
-            deviceInfo: data.deviceInfo || 'Navigateur Web',
-            timestamp: data.timestamp?.toDate ? data.timestamp.toDate() : new Date()
-          });
-        }
-      });
-
-      setPropertyVisitors(loadedVisitors);
-      setVisitorsCount(loadedVisitors.length);
-    }, (err) => {
-      console.warn('Erreur écoute visiteurs:', err);
-    });
-
-    return () => unsubscribe();
-  }, [property?.id, user, canManageProperty]);
-
   const handleOpenCardContact = () => {
     const ownerInfo = {
       name: property.ownerName || 'Propriétaire',
@@ -183,17 +63,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
       phone: property.ownerPhone || '+243999999999'
     };
     setActiveRecipient(ownerInfo);
-    setContactModalOpen(true);
-  };
-
-  const handleOpenVisitorContact = (visitor: PropertyVisitor) => {
-    const visitorInfo = {
-      name: visitor.visitorName || visitor.visitorEmail || 'Utilisateur',
-      email: visitor.visitorEmail || '',
-      phone: (visitor as any).visitorPhone || '+243999999999'
-    };
-    setActiveRecipient(visitorInfo);
-    setVisitorsModalOpen(false);
     setContactModalOpen(true);
   };
 
@@ -220,34 +89,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
     const encodedMessage = encodeURIComponent(clientMessage);
     const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
     window.open(whatsappUrl, '_blank');
-  };
-
-  const formatRoleLabel = (role: string) => {
-    switch ((role || '').toLowerCase()) {
-      case 'admin': return 'Administrateur';
-      case 'agent': return 'Agent';
-      case 'partner':
-      case 'partenaire': return 'Partenaire';
-      default: return 'Client';
-    }
-  };
-
-  const formatVisitTime = (timestampValue: any) => {
-    if (!timestampValue) return 'Récemment';
-    const dateObj = timestampValue instanceof Date ? timestampValue : new Date(timestampValue);
-    if (isNaN(dateObj.getTime())) return 'Récemment';
-
-    const today = new Date();
-    const isToday =
-      dateObj.getDate() === today.getDate() &&
-      dateObj.getMonth() === today.getMonth() &&
-      dateObj.getFullYear() === today.getFullYear();
-
-    if (isToday) {
-      return dateObj.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    } else {
-      return dateObj.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-    }
   };
 
   const getCategoryBadgeColor = (cat: string) => {
@@ -457,7 +298,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
 
           <div className="pt-2 border-t border-slate-100 dark:border-[#282828] flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
-              {/* Chambres */}
               {property.bedrooms !== undefined && property.category !== 'parcelle' && (
                 <div
                   className="flex items-center space-x-1"
@@ -470,7 +310,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 </div>
               )}
 
-              {/* Salons */}
               {(property as any).livingRooms !== undefined && property.category !== 'parcelle' && (
                 <div
                   className="flex items-center space-x-1"
@@ -483,7 +322,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 </div>
               )}
 
-              {/* Cuisines */}
               {property.kitchens !== undefined && property.category !== 'parcelle' && (
                 <div
                   className="flex items-center space-x-1"
@@ -496,7 +334,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 </div>
               )}
 
-              {/* Toilettes */}
               {property.bathrooms !== undefined && property.category !== 'parcelle' && (
                 <div
                   className="flex items-center space-x-1"
@@ -509,28 +346,12 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 </div>
               )}
 
-              {/* Superficie si parcelle */}
               {property.category === 'parcelle' && property.surface !== undefined && property.surface > 0 && (
                 <div className="flex items-center space-x-1" title={`Superficie ${property.surface} m²`}>
                   <Maximize2 className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                   <span>{property.surface} m²</span>
                 </div>
               )}
-
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setVisitorsModalOpen(true);
-                }}
-                className="flex items-center space-x-1 text-[#FF385C] bg-[#FF385C]/10 hover:bg-[#FF385C]/20 px-2 py-0.5 rounded-md font-bold transition cursor-pointer"
-                title="Cliquer pour voir la liste des visiteurs"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>
-                  {visitorsCount} {visitorsCount <= 1 ? 'Visiteur' : 'Visiteurs'}
-                </span>
-              </button>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 ml-auto">
@@ -671,101 +492,6 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 </div>
               </form>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* MODALE LISTE DES VISITEURS */}
-      {visitorsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-[#1e1e1e] max-w-lg w-full rounded-3xl p-6 border border-slate-200 dark:border-[#2e2e2e] shadow-2xl space-y-5">
-            <div className="flex items-center justify-between border-b pb-4">
-              <div className="flex items-center space-x-2">
-                <div className="w-10 h-10 rounded-xl bg-[#FF385C]/10 text-[#FF385C] flex items-center justify-center font-bold">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">
-                    {visitorsCount} {visitorsCount <= 1 ? 'Visiteur' : 'Visiteurs'}
-                  </h3>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setVisitorsModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-700 dark:hover:text-white cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="max-h-80 overflow-y-auto space-y-3">
-              {propertyVisitors.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-xs">
-                  Aucun visiteur enregistré pour le moment.
-                </div>
-              ) : (
-                propertyVisitors.map((v, i) => {
-                  const displayName = v.visitorName !== '' ? v.visitorName : v.visitorEmail;
-                  const initialChar = displayName ? displayName.charAt(0).toUpperCase() : 'V';
-                  const normalizedRole = (v.visitorRole || '').toLowerCase();
-                  const isPrivilegedRole = normalizedRole === 'admin' || normalizedRole === 'agent' || normalizedRole === 'partner' || normalizedRole === 'partenaire';
-
-                  return (
-                    <div key={i} className="bg-slate-50 dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
-                      <div className="flex items-center space-x-3 min-w-0">
-                        {v.avatarUrl && v.avatarUrl.trim() !== '' ? (
-                          <img
-                            src={v.avatarUrl}
-                            alt={displayName}
-                            className="w-9 h-9 rounded-full object-cover border border-[#FF385C]/30 shrink-0"
-                          />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-[#FF385C]/10 text-[#FF385C] flex items-center justify-center font-extrabold text-xs border border-[#FF385C]/20 shrink-0">
-                            {initialChar}
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs text-slate-900 dark:text-white truncate max-w-[150px] sm:max-w-[200px]">
-                            {displayName}
-                          </p>
-                          {v.visitorName !== '' && v.visitorEmail !== '' && (
-                            <p className="text-[10px] text-slate-400 truncate max-w-[150px] sm:max-w-[200px]">
-                              {v.visitorEmail}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center space-x-2 shrink-0">
-                        <div className="text-right">
-                          <span className="px-2 py-0.5 bg-[#FF385C]/10 text-[#FF385C] rounded-full text-[10px] font-bold uppercase">
-                            {formatRoleLabel(v.visitorRole)}
-                          </span>
-                          <p className="text-[10px] text-slate-400 mt-1">
-                            {formatVisitTime(v.timestamp)}
-                          </p>
-                        </div>
-
-                        {isPrivilegedRole && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenVisitorContact(v);
-                            }}
-                            className="p-2 bg-[#FF385C]/10 hover:bg-[#FF385C]/20 text-[#FF385C] rounded-xl transition cursor-pointer"
-                            title="Contacter ce visiteur"
-                          >
-                            <MessageSquare className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
           </div>
         </div>
       )}

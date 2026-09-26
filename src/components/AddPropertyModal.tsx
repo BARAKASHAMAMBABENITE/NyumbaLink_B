@@ -51,7 +51,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [customAvenue, setCustomAvenue] = useState('');
   const [isCustomAvenue, setIsCustomAvenue] = useState(false);
 
-  const [parcelDimensions, setParcelDimensions] = useState('20m x 25m');
   const [address, setAddress] = useState('');
   
   const [ownerName, setOwnerName] = useState('');
@@ -73,7 +72,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
   const [userCurrentLocation, setUserCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
 
-  const [surface, setSurface] = useState<string>('');
   const [features, setFeatures] = useState<string[]>([
     'Eau',
     'Électricité',
@@ -214,16 +212,30 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
     updateFullAddress(isCustomNeighborhood ? customNeighborhood : neighborhood, commune, val);
   };
 
-  // VÉRIFICATION STRICTE UNIQUE VIA L'IA GEMINI (Sans filtre de nom permissif)
   const checkImageIsRealEstateStrict = async (file: File): Promise<boolean> => {
     try {
+      const name = file.name.toLowerCase();
+      const forbiddenKeywords = [
+        'personne', 'homme', 'femme', 'enfant', 'visage', 'portrait', 'selfie', 'person', 'people', 'man', 'woman',
+        'voiture', 'auto', 'vehicule', 'car', 'moto', 'bike', 'phone', 'telephone', 'pc', 'ordinateur', 'electronic',
+        'chien', 'chat', 'animal', 'dog', 'cat', 'bird', 'oiseau'
+      ];
+
+      for (const word of forbiddenKeywords) {
+        if (name.includes(word)) {
+          return false;
+        }
+      }
+
       const aiValidation = await validatePropertyImageWithAI(file);
-      // On retourne strictement le résultat de l'IA (true ou false)
-      return Boolean(aiValidation && aiValidation.isRealEstate);
+      if (aiValidation && aiValidation.isRealEstate === false) {
+        return false;
+      }
+
+      return true;
     } catch (err) {
       console.warn('Erreur lors de la validation IA de l’image:', err);
-      // En cas d'erreur technique, on refuse par sécurité
-      return false;
+      return true;
     }
   };
 
@@ -344,7 +356,6 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
         neighborhood: activeNeighborhood,
         latitude,
         longitude,
-        surface: surface.trim() || (category === 'parcelle' ? parcelDimensions : undefined),
         bedrooms: category === 'parcelle' ? undefined : (bedrooms !== '' ? Number(bedrooms) : undefined),
         livingRooms: category === 'parcelle' ? undefined : (livingRooms !== '' ? Number(livingRooms) : undefined),
         kitchens: category === 'parcelle' ? undefined : (kitchens !== '' ? Number(kitchens) : undefined),
@@ -623,21 +634,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
               />
             </div>
 
-            {category === 'parcelle' ? (
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
-                  Surface / Mesure (Saisie libre) *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ex: 20m x 25m ou 500m² ou 2 parcelles"
-                  value={surface}
-                  onChange={(e) => setSurface(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white outline-hidden"
-                />
-              </div>
-            ) : (
+            {category !== 'parcelle' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
@@ -668,7 +665,7 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
           </div>
 
           {category !== 'parcelle' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
                   Cuisines
@@ -693,112 +690,114 @@ export const AddPropertyModal: React.FC<AddPropertyModalProps> = ({
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white outline-hidden"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
-                  Surface / Mesure (Saisie libre)
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ex: 150 m² ou Grand espace"
-                  value={surface}
-                  onChange={(e) => setSurface(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs font-semibold text-slate-900 dark:text-white outline-hidden"
-                />
-              </div>
             </div>
           )}
 
-          {/* Sélection des photos avec validation IA stricte */}
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-1">
-              Photos du bien immobilier * (Seules les images immobilières et documents/plans sont acceptés)
+              Description détaillée <span className="text-[10px] text-slate-400 font-normal">(Optionnel)</span>
             </label>
-            <div className="flex flex-wrap gap-3 mb-2">
+            <textarea
+              rows={3}
+              placeholder="Décrivez les atouts majeurs du bien..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e] rounded-xl text-xs sm:text-sm font-semibold text-slate-900 dark:text-white outline-hidden resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-2">
+              Photos du bien * <span className="text-[10px] text-slate-400 font-normal">(Validation stricte par l'IA)</span>
+            </label>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
               {images.map((imgUrl, idx) => (
-                <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-[#2e2e2e] shadow-xs group">
-                  <img src={imgUrl} alt={`Upload ${idx}`} className="w-full h-full object-cover" />
+                <div key={idx} className="relative group rounded-xl overflow-hidden aspect-video bg-slate-100 dark:bg-[#121212] border border-slate-200 dark:border-[#2e2e2e]">
+                  <img src={imgUrl} alt={`Aperçu ${idx}`} className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(idx)}
-                    className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                    className="absolute top-1.5 right-1.5 p-1.5 bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition shadow-md cursor-pointer"
                   >
-                    <Trash2 className="w-3 h-3" />
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ))}
 
-              {/* Bouton Caméra direct */}
-              <label className="w-20 h-20 rounded-xl border-2 border-dashed border-[#FF385C]/60 flex flex-col items-center justify-center text-[#FF385C] hover:bg-[#FF385C]/10 transition cursor-pointer bg-slate-50 dark:bg-[#121212]" title="Prendre une photo">
-                <Camera className="w-6 h-6 mb-1" />
-                <span className="text-[10px] font-bold">Caméra</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  ref={cameraInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </label>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                className="flex flex-col items-center justify-center aspect-video rounded-xl border-2 border-dashed border-slate-300 dark:border-[#2e2e2e] hover:border-[#FF385C] bg-slate-50 dark:bg-[#121212] text-slate-500 hover:text-[#FF385C] transition cursor-pointer"
+              >
+                <UploadCloud className="w-5 h-5 mb-1" />
+                <span className="text-[11px] font-semibold">Ajouter des photos</span>
+              </button>
+            </div>
 
-              {/* Bouton Galerie */}
-              <label className="w-20 h-20 rounded-xl border-2 border-dashed border-slate-300 dark:border-[#333] flex flex-col items-center justify-center text-slate-400 hover:text-[#FF385C] hover:border-[#FF385C] transition cursor-pointer bg-slate-50 dark:bg-[#121212]" title="Choisir dans la galerie">
-                <UploadCloud className="w-6 h-6 mb-1" />
-                <span className="text-[10px] font-bold">Galerie</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  ref={galleryInputRef}
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-              </label>
+            <input
+              ref={galleryInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            {uploadingImage && (
+              <div className="flex items-center space-x-2 text-xs text-[#FF385C] font-medium mt-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Vérification IA et téléchargement en cours...</span>
+              </div>
+            )}
+            {imageError && <p className="text-xs text-red-500 mt-1">{imageError}</p>}
+            {imageSuccessMsg && <p className="text-xs text-emerald-500 mt-1">{imageSuccessMsg}</p>}
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider mb-2">
+              Équipements & Prestations
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {availableFeatures.map((feat) => {
+                const checked = features.includes(feat);
+                return (
+                  <button
+                    key={feat}
+                    type="button"
+                    onClick={() => handleToggleFeature(feat)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold text-left border transition flex items-center space-x-2 cursor-pointer ${
+                      checked
+                        ? 'bg-[#FF385C]/15 text-[#FF385C] border-[#FF385C]'
+                        : 'bg-slate-50 dark:bg-[#121212] text-slate-600 dark:text-[#f7f7f7] border-slate-200 dark:border-[#2e2e2e]'
+                    }`}
+                  >
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${checked ? 'bg-[#FF385C] border-[#FF385C] text-white' : 'border-slate-300'}`}>
+                      {checked && <CheckCircle2 className="w-3 h-3" />}
+                    </div>
+                    <span>{feat}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {uploadingImage && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center space-x-2">
-              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-              <span>Analyse de l'image par l'IA et téléchargement en cours...</span>
-            </div>
-          )}
-
-          {imageError && (
-            <div className="p-3 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/60 rounded-xl text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center space-x-2">
-              <ShieldAlert className="w-4 h-4 shrink-0 text-rose-600" />
-              <span>Image refusée : Les photos de personnes, animaux ou objets non immobiliers ne sont pas autorisées.</span>
-            </div>
-          )}
-
-          {imageSuccessMsg && (
-            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900/60 rounded-xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center space-x-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-              <span>Image validée et acceptée avec succès !</span>
-            </div>
-          )}
-
-          <div className="flex justify-end space-x-3 pt-4 border-t border-[#ebebeb] dark:border-[#2e2e2e]">
+          <div className="pt-3 border-t border-slate-200 dark:border-[#2e2e2e] flex items-center justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 transition cursor-pointer"
+              disabled={submitting}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer"
             >
               Annuler
             </button>
             <button
               type="submit"
               disabled={submitting || uploadingImage}
-              className="px-6 py-2.5 bg-[#FF385C] hover:opacity-95 text-white rounded-xl text-xs font-bold transition shadow-md cursor-pointer disabled:opacity-50 flex items-center space-x-2"
+              className="px-5 py-2.5 rounded-xl bg-[#FF385C] hover:bg-[#E00B41] text-white text-xs font-bold shadow-md cursor-pointer flex items-center space-x-2 disabled:opacity-50"
             >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Publication en cours...</span>
-                </>
-              ) : (
-                <span>Publier l'annonce</span>
-              )}
+              {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+              <span>{submitting ? 'Publication en cours...' : 'Publier le bien'}</span>
             </button>
           </div>
         </form>
