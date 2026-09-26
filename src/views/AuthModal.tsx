@@ -53,11 +53,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLoading(true);
     setErrorMsg('');
     try {
-      // Utilise désormais signInWithRedirect (redirection complète)
-      await loginWithGoogle();
+      // 1. Connexion Google et récupération du profil utilisateur
+      const profile = await loginWithGoogle();
+      
+      // 2. Mise à jour de l'état global de l'utilisateur
+      setUser(profile);
+      
+      // 3. Fermeture immédiate et automatique de la modale
+      onClose();
     } catch (err: any) {
       console.error('Google Auth Error:', err);
       setErrorMsg(err?.message || 'Erreur lors de la connexion Google.');
+    } finally {
+      // 4. Réinitialisation de l'état de chargement
       setLoading(false);
     }
   };

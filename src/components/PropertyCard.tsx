@@ -211,6 +211,22 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({
                 }`}
               />
             </button>
+
+            {onDeleteProperty && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm("Voulez-vous vraiment supprimer ce bien ?")) {
+                    onDeleteProperty(property.id);
+                  }
+                }}
+                className="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/90 hover:bg-rose-500 hover:text-white text-slate-800 dark:text-white shadow-sm backdrop-blur-sm flex items-center justify-center transition-all cursor-pointer"
+                title="Supprimer l'annonce"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <div className="absolute bottom-2.5 left-3 z-10 flex items-center space-x-2">
